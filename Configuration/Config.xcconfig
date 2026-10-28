@@ -1,0 +1,13 @@
+//
+//  Config.xcconfig
+//  Mobile-Swift-Movie-MVVM
+//
+
+// Default fallback placeholder (overridden by Secrets.xcconfig if present)
+TMDB_API_READ_ACCESS_TOKEN = YOUR_TMDB_API_READ_ACCESS_TOKEN_HERE
+
+// Include optional local secrets (not tracked by Git)
+#include? "Secrets.xcconfig"
+
+// Expose token to Info.plist via Xcode automatic Info.plist generation
+INFOPLIST_KEY_TMDBApiReadAccessToken = $(TMDB_API_READ_ACCESS_TOKEN)

@@ -1,0 +1,15 @@
+# Xcode & Swift
+build/
+DerivedData/
+*.xcuserdatad/
+xcuserdata/
+*.xcuserstate
+project.xcworkspace/xcuserdata/
+.DS_Store
+
+# Secrets & Credentials (NEVER COMMIT)
+**/Secrets.xcconfig
+Configuration/Secrets.xcconfig
+
+# Graphify AST Cache
+graphify-out/cache/
