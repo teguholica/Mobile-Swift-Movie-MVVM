@@ -23,12 +23,14 @@ public struct MovieDetailView: View {
             let detailUseCase = GetMovieDetailsUseCase(repository: repository)
             let toggleUseCase = ToggleFavoriteMovieUseCase(repository: repository)
             let checkUseCase = CheckIsFavoriteUseCase(repository: repository)
+            let discoverUseCase = DiscoverMoviesByGenreUseCase(repository: repository)
             _viewModel = State(
                 initialValue: MovieDetailViewModel(
                     movieId: movieId,
                     getMovieDetailsUseCase: detailUseCase,
                     toggleFavoriteMovieUseCase: toggleUseCase,
-                    checkIsFavoriteUseCase: checkUseCase
+                    checkIsFavoriteUseCase: checkUseCase,
+                    discoverMoviesByGenreUseCase: discoverUseCase
                 )
             )
         }
@@ -213,6 +215,9 @@ public struct MovieDetailView: View {
                         }
                     }
                     .padding(.horizontal, 20)
+
+                    // 5. All Related Genre Sections ("More Like This")
+                    allRelatedGenreSections(detail: detail)
                 }
                 .frame(width: screenWidth)
                 .padding(.bottom, 40)
@@ -220,6 +225,113 @@ public struct MovieDetailView: View {
             .coordinateSpace(name: "detailScroll")
             .ignoresSafeArea(edges: .top)
         }
+    }
+
+    @ViewBuilder
+    private func allRelatedGenreSections(detail: MovieDetail) -> some View {
+        if viewModel.isLoadingRelated && viewModel.genreSections.isEmpty {
+            // Initial shimmer placeholder
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("MORE LIKE THIS")
+                        .font(.caption2.weight(.heavy))
+                        .tracking(1.5)
+                        .foregroundStyle(CinemaTokens.Colors.gold)
+
+                    Text("Loading Recommendations...")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(CinemaTokens.Colors.textPrimary)
+                }
+                .padding(.horizontal, 20)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(0..<4) { _ in
+                            RoundedRectangle(cornerRadius: CinemaTokens.Radius.card)
+                                .fill(CinemaTokens.Colors.elevated)
+                                .frame(width: 124, height: 186)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: CinemaTokens.Radius.card)
+                                        .stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
+                                )
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+            }
+        } else if !viewModel.genreSections.isEmpty {
+            LazyVStack(alignment: .leading, spacing: 26) {
+                ForEach(viewModel.genreSections) { section in
+                    VStack(alignment: .leading, spacing: 14) {
+                        // Section Header with cinematic kicker
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("MORE LIKE THIS")
+                                .font(.caption2.weight(.heavy))
+                                .tracking(1.5)
+                                .foregroundStyle(CinemaTokens.Colors.gold)
+
+                            Text("More in \(section.genre.name)")
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(CinemaTokens.Colors.textPrimary)
+                        }
+                        .padding(.horizontal, 20)
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            LazyHStack(spacing: 14) {
+                                ForEach(section.movies) { movie in
+                                    NavigationLink(destination: MovieDetailView(movieId: movie.id, onToggleFavorite: onToggleFavorite)) {
+                                        relatedMovieCard(for: movie)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func relatedMovieCard(for movie: Movie) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ZStack(alignment: .bottomLeading) {
+                TMDBImageView(path: movie.posterPath, size: "w500")
+                    .frame(width: 124, height: 186)
+                    .clipShape(RoundedRectangle(cornerRadius: CinemaTokens.Radius.card))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CinemaTokens.Radius.card)
+                            .stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
+                    )
+
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0.6),
+                        .init(color: .black.opacity(0.75), location: 1.0)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .clipShape(RoundedRectangle(cornerRadius: CinemaTokens.Radius.card))
+            }
+            .frame(width: 124, height: 186)
+
+            Text(movie.title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(CinemaTokens.Colors.textPrimary)
+                .lineLimit(1)
+
+            HStack(spacing: 6) {
+                RatingBadgeView(rating: movie.voteAverage)
+
+                if let year = movie.releaseDate?.prefix(4), !year.isEmpty {
+                    Text(String(year))
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(CinemaTokens.Colors.textMuted)
+                }
+            }
+        }
+        .frame(width: 124, alignment: .leading)
     }
 
     private func threePillarStatsCard(detail: MovieDetail) -> some View {

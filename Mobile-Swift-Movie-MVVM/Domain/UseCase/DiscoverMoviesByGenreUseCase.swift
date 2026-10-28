@@ -21,3 +21,9 @@ public final class DiscoverMoviesByGenreUseCase: DiscoverMoviesByGenreUseCasePro
         return try await repository.discoverMovies(genreId: genreId, page: page)
     }
 }
+
+public extension DiscoverMoviesByGenreUseCaseProtocol {
+    func execute(genreId: Int) async throws -> [Movie] {
+        try await execute(genreId: genreId, page: 1)
+    }
+}

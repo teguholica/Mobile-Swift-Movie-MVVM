@@ -27,6 +27,7 @@ final class MockMovieRepository: MovieRepositoryProtocol, @unchecked Sendable {
     var getPopularCallCount = 0
     var requestedPopularPages: [Int] = []
     var popularResultProvider: ((Int) -> Result<[Movie], Error>)?
+    var discoverResultProvider: ((Int) -> Result<[Movie], Error>)?
 
     func getNowPlayingMovies(page: Int) async throws -> [Movie] {
         getNowPlayingCallCount += 1
@@ -54,6 +55,9 @@ final class MockMovieRepository: MovieRepositoryProtocol, @unchecked Sendable {
     func discoverMovies(genreId: Int, page: Int) async throws -> [Movie] {
         requestedDiscoverGenreId = genreId
         requestedDiscoverPage = page
+        if let provider = discoverResultProvider {
+            return try provider(genreId).get()
+        }
         return try discoverResult.get()
     }
 
