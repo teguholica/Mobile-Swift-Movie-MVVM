@@ -22,7 +22,7 @@ public final class SearchViewModel {
         }
     }
 
-    public var selectedGenre: Genre? = nil
+    public var selectedGenres: [Genre] = []
     public var state: State = .initial
     public var movies: [Movie] = []
     public var page: Int = 1
@@ -33,6 +33,8 @@ public final class SearchViewModel {
     private let discoverMoviesUseCase: DiscoverMoviesUseCaseProtocol?
     private let debounceDuration: Duration
     private var searchTask: Task<Void, Never>?
+    private var genreFetchTask: Task<Void, Never>?
+    private var discoverGeneration = 0
 
     public init(
         searchMoviesUseCase: SearchMoviesUseCaseProtocol,
@@ -44,15 +46,26 @@ public final class SearchViewModel {
         self.debounceDuration = debounceDuration
     }
 
+    public var currentDiscoverFilters: DiscoverFilters {
+        DiscoverFilters(genreIds: selectedGenres.map(\.id))
+    }
+
+    public func isSelected(_ genre: Genre) -> Bool {
+        selectedGenres.contains { $0.id == genre.id }
+    }
+
     public func onQueryChanged(_ newQuery: String) {
         searchTask?.cancel()
 
         let trimmed = newQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            if let selectedGenre {
-                // If query cleared but genre is selected, re-fetch genre discovery
-                Task { @MainActor in
-                    await fetchGenreDiscovery(genre: selectedGenre)
+            if !selectedGenres.isEmpty {
+                // If query cleared but genres are selected, re-fetch discovery
+                discoverGeneration += 1
+                let generation = discoverGeneration
+                let filters = currentDiscoverFilters
+                Task { @MainActor [weak self] in
+                    await self?.executeDiscover(filters: filters, generation: generation, debounce: .zero)
                 }
             } else {
                 movies = []
@@ -64,17 +77,12 @@ public final class SearchViewModel {
         }
 
         // Active text search clears the genre selection
-        selectedGenre = nil
+        selectedGenres = []
+        genreFetchTask?.cancel()
+        discoverGeneration += 1
 
         searchTask = Task { @MainActor in
-            do {
-                if debounceDuration > .zero {
-                    try await Task.sleep(for: debounceDuration)
-                }
-            } catch {
-                return // Task cancelled
-            }
-
+            guard await self.waitForDebounce(debounceDuration) else { return }
             guard !Task.isCancelled else { return }
 
             state = .loading
@@ -99,59 +107,93 @@ public final class SearchViewModel {
     }
 
     @MainActor
-    public func selectGenre(_ genre: Genre?) async {
+    public func toggleGenre(_ genre: Genre) async {
+        genreFetchTask?.cancel()
         searchTask?.cancel()
 
-        // Toggle selection off if already selected
-        if let current = selectedGenre, let new = genre, current.id == new.id {
-            selectedGenre = nil
-            if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                movies = []
-                state = .initial
-                page = 1
-                canLoadMore = true
-            } else {
-                await executeSearchImmediate(query: query)
+        if isSelected(genre) {
+            selectedGenres.removeAll { $0.id == genre.id }
+        } else {
+            if !query.isEmpty {
+                query = ""
             }
+            selectedGenres.append(genre)
+        }
+
+        guard !selectedGenres.isEmpty else {
+            movies = []
+            state = .initial
+            page = 1
+            canLoadMore = true
             return
         }
 
-        selectedGenre = genre
+        discoverGeneration += 1
+        let generation = discoverGeneration
+        let filters = currentDiscoverFilters
+        state = .loading
 
-        guard let genre else {
-            if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                movies = []
-                state = .initial
-                page = 1
-                canLoadMore = true
-            }
-            return
+        let debounceDuration = self.debounceDuration
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.executeDiscover(
+                filters: filters,
+                generation: generation,
+                debounce: debounceDuration
+            )
         }
-
-        // Clear query text input when a genre pill is tapped
-        query = ""
-        await fetchGenreDiscovery(genre: genre)
+        genreFetchTask = task
+        await task.value
     }
 
     @MainActor
-    private func fetchGenreDiscovery(genre: Genre) async {
+    private func executeDiscover(
+        filters: DiscoverFilters,
+        generation: Int,
+        debounce: Duration
+    ) async {
+        guard await waitForDebounce(debounce) else { return }
+        guard generation == discoverGeneration else { return }
         guard let discoverMoviesUseCase else {
             state = .empty
             return
         }
 
-        state = .loading
         do {
-            let results = try await discoverMoviesUseCase.execute(
-                filters: DiscoverFilters(genreIds: [genre.id]),
-                page: 1
-            )
+            let results = try await discoverMoviesUseCase.execute(filters: filters, page: 1)
+            guard generation == discoverGeneration else { return }
             self.movies = results
             self.page = 1
             self.canLoadMore = !results.isEmpty
             self.state = results.isEmpty ? .empty : .loaded
         } catch {
+            guard generation == discoverGeneration else { return }
             self.state = .error(error.localizedDescription)
+        }
+    }
+
+    private func waitForDebounce(_ duration: Duration) async -> Bool {
+        do {
+            if duration > .zero {
+                try await Task.sleep(for: duration)
+            }
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    @MainActor
+    public func refreshResults() async {
+        if !selectedGenres.isEmpty {
+            discoverGeneration += 1
+            await executeDiscover(
+                filters: currentDiscoverFilters,
+                generation: discoverGeneration,
+                debounce: .zero
+            )
+        } else {
+            await executeSearchImmediate(query: query)
         }
     }
 
@@ -161,12 +203,13 @@ public final class SearchViewModel {
 
         isLoadingMore = true
         let nextPage = page + 1
+        let requestGeneration = discoverGeneration
 
         do {
             let nextResults: [Movie]
-            if let selectedGenre, let discoverMoviesUseCase {
+            if !selectedGenres.isEmpty, let discoverMoviesUseCase {
                 nextResults = try await discoverMoviesUseCase.execute(
-                    filters: DiscoverFilters(genreIds: [selectedGenre.id]),
+                    filters: currentDiscoverFilters,
                     page: nextPage
                 )
             } else {
@@ -176,6 +219,11 @@ public final class SearchViewModel {
                     return
                 }
                 nextResults = try await searchMoviesUseCase.execute(query: trimmed, page: nextPage)
+            }
+
+            guard requestGeneration == discoverGeneration else {
+                isLoadingMore = false
+                return
             }
 
             if nextResults.isEmpty {
@@ -196,8 +244,10 @@ public final class SearchViewModel {
     @MainActor
     public func executeSearchImmediate(query: String) async {
         self.query = query
-        self.selectedGenre = nil
+        self.selectedGenres = []
         searchTask?.cancel()
+        genreFetchTask?.cancel()
+        discoverGeneration += 1
 
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
