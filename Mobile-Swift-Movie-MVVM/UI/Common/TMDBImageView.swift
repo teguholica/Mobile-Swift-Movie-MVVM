@@ -4,11 +4,16 @@
 //
 
 import SwiftUI
+import UIKit
 
 public struct TMDBImageView: View {
     private let path: String?
     private let size: String
     private let contentMode: ContentMode
+
+    @State private var loadedImage: LoadedImage?
+    @State private var loadedURL: URL?
+    @State private var didFail = false
 
     public init(
         path: String?,
@@ -21,27 +26,34 @@ public struct TMDBImageView: View {
     }
 
     public var body: some View {
-        if let url = TMDBConfig.imageURL(path: path, size: size) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .empty:
-                    ZStack {
-                        CinemaTokens.Colors.elevated
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    }
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: contentMode)
-                case .failure:
-                    placeholderView
-                @unknown default:
-                    placeholderView
-                }
+        content
+            .task(id: url) {
+                await load()
             }
-        } else {
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let loadedImage {
+            Image(uiImage: loadedImage.image)
+                .resizable()
+                .aspectRatio(contentMode: contentMode)
+        } else if url == nil || didFail {
             placeholderView
+        } else {
+            loadingView
+        }
+    }
+
+    private var url: URL? {
+        TMDBConfig.imageURL(path: path, size: size)
+    }
+
+    private var loadingView: some View {
+        ZStack {
+            CinemaTokens.Colors.elevated
+            ProgressView()
+                .scaleEffect(0.8)
         }
     }
 
@@ -56,6 +68,39 @@ public struct TMDBImageView: View {
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(CinemaTokens.Colors.textMuted)
             }
+        }
+    }
+
+    @MainActor
+    private func load() async {
+        guard let url else {
+            loadedImage = nil
+            loadedURL = nil
+            didFail = false
+            return
+        }
+
+        if loadedURL != url {
+            loadedImage = nil
+            didFail = false
+            loadedURL = url
+        }
+
+        if let cached = ImagePipeline.shared.cachedImage(for: url) {
+            loadedImage = cached
+            didFail = false
+            return
+        }
+
+        do {
+            let image = try await ImagePipeline.shared.image(for: url)
+            guard !Task.isCancelled, self.url == url else { return }
+            loadedImage = image
+            didFail = false
+        } catch is CancellationError {
+        } catch {
+            guard !Task.isCancelled, self.url == url else { return }
+            didFail = true
         }
     }
 }
