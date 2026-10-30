@@ -24,7 +24,7 @@ public struct SearchView: View {
                 // Horizontal Genre Chips
                 genreChipsBar
 
-                if viewModel.hasVisibleDiscoverFilters {
+                if viewModel.activeFilterCount > 0 {
                     filterChipsBar
                 }
 
@@ -62,7 +62,10 @@ public struct SearchView: View {
                 }
             }
             .sheet(isPresented: $isFilterSheetPresented) {
-                DiscoverFilterSheet(filters: viewModel.currentDiscoverFilters) { draft in
+                DiscoverFilterSheet(
+                    filters: viewModel.currentDiscoverFilters,
+                    isTextMode: viewModel.isTextMode
+                ) { draft in
                     Task {
                         await viewModel.applyFilters(draft)
                     }
@@ -102,32 +105,45 @@ public struct SearchView: View {
     private var filterChipsBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                if let yearRange = viewModel.filters.yearRange {
-                    filterChip(title: "\(yearRange.lowerBound)–\(yearRange.upperBound)") {
-                        Task {
-                            await viewModel.clearYearRange()
+                if viewModel.isTextMode {
+                    if let searchYear = viewModel.filters.searchYear {
+                        filterChip(
+                            title: "Year \(searchYear)",
+                            accessibilityTitle: "release year \(searchYear)"
+                        ) {
+                            Task {
+                                await viewModel.clearSearchYear()
+                            }
                         }
                     }
-                }
-
-                if let minRating = viewModel.filters.minRating {
-                    filterChip(
-                        title: "★ \(Int(minRating))+",
-                        accessibilityTitle: "minimum rating \(Int(minRating))+"
-                    ) {
-                        Task {
-                            await viewModel.clearMinRating()
+                } else {
+                    if let yearRange = viewModel.filters.yearRange {
+                        filterChip(title: "\(yearRange.lowerBound)–\(yearRange.upperBound)") {
+                            Task {
+                                await viewModel.clearYearRange()
+                            }
                         }
                     }
-                }
 
-                if !viewModel.filters.sort.isDefault {
-                    filterChip(
-                        title: viewModel.filters.sort.title,
-                        accessibilityTitle: "\(viewModel.filters.sort.title) sort"
-                    ) {
-                        Task {
-                            await viewModel.clearSort()
+                    if let minRating = viewModel.filters.minRating {
+                        filterChip(
+                            title: "★ \(Int(minRating))+",
+                            accessibilityTitle: "minimum rating \(Int(minRating))+"
+                        ) {
+                            Task {
+                                await viewModel.clearMinRating()
+                            }
+                        }
+                    }
+
+                    if !viewModel.filters.sort.isDefault {
+                        filterChip(
+                            title: viewModel.filters.sort.title,
+                            accessibilityTitle: "\(viewModel.filters.sort.title) sort"
+                        ) {
+                            Task {
+                                await viewModel.clearSort()
+                            }
                         }
                     }
                 }

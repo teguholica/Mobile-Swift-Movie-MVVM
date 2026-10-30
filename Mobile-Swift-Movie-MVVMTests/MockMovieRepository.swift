@@ -11,6 +11,8 @@ final class MockMovieRepository: MovieRepositoryProtocol, @unchecked Sendable {
     var popularResult: Result<[Movie], Error> = .success([])
     var topRatedResult: Result<[Movie], Error> = .success([])
     var searchResult: Result<[Movie], Error> = .success([])
+    var requestedSearchQuery: String?
+    var requestedSearchYear: Int?
     var discoverResult: Result<[Movie], Error> = .success([])
     var movieDetailsResult: Result<MovieDetail, Error> = .failure(URLError(.badURL))
     var getMovieDetailsCallCount = 0
@@ -55,7 +57,9 @@ final class MockMovieRepository: MovieRepositoryProtocol, @unchecked Sendable {
         return try topRatedResult.get()
     }
 
-    func searchMovies(query: String, page: Int) async throws -> [Movie] {
+    func searchMovies(query: String, year: Int?, page: Int) async throws -> [Movie] {
+        requestedSearchQuery = query
+        requestedSearchYear = year
         return try searchResult.get()
     }
 

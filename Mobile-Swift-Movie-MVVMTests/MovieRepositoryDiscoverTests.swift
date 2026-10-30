@@ -51,6 +51,7 @@ struct MovieRepositoryDiscoverTests {
         #expect(query.first(where: { $0.name == "vote_average.gte" }) == nil)
         #expect(query.first(where: { $0.name == "vote_count.gte" }) == nil)
         #expect(query.first(where: { $0.name == "primary_release_date.gte" }) == nil)
+        #expect(query.first(where: { $0.name == "year" }) == nil)
     }
 
     @Test func testDiscoverWithoutGenresOmitsGenreParameter() async throws {
@@ -121,6 +122,31 @@ struct MovieRepositoryDiscoverTests {
         #expect(query.first(where: { $0.name == "sort_by" })?.value == "vote_average.desc")
         #expect(query.first(where: { $0.name == "vote_count.gte" })?.value == "50")
         #expect(query.first(where: { $0.name == "vote_average.gte" }) == nil)
+    }
+
+    @Test func testSearchEncodesYearAndOmitsDiscoverFilters() async throws {
+        let (repository, network) = makeSUT()
+
+        _ = try await repository.searchMovies(query: "Dune", year: 2021, page: 1)
+
+        let endpoint = try #require(network.requestedEndpoints.first)
+        let query = endpoint.queryItems
+
+        #expect(endpoint.path == "/search/movie")
+        #expect(query.first(where: { $0.name == "query" })?.value == "Dune")
+        #expect(query.first(where: { $0.name == "year" })?.value == "2021")
+        #expect(query.first(where: { $0.name == "sort_by" }) == nil)
+        #expect(query.first(where: { $0.name == "primary_release_date.gte" }) == nil)
+        #expect(query.first(where: { $0.name == "vote_average.gte" }) == nil)
+    }
+
+    @Test func testSearchWithoutYearOmitsYearParameter() async throws {
+        let (repository, network) = makeSUT()
+
+        _ = try await repository.searchMovies(query: "Dune", year: nil, page: 1)
+
+        let endpoint = try #require(network.requestedEndpoints.first)
+        #expect(endpoint.queryItems.first(where: { $0.name == "year" }) == nil)
     }
 
     @Test func testGetGenresMapsCatalogueIntoDomainGenres() async throws {

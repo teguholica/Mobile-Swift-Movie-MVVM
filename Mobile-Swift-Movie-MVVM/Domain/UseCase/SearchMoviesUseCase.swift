@@ -6,7 +6,7 @@
 import Foundation
 
 public protocol SearchMoviesUseCaseProtocol: Sendable {
-    func execute(query: String, page: Int) async throws -> [Movie]
+    func execute(query: String, year: Int?, page: Int) async throws -> [Movie]
 }
 
 public final class SearchMoviesUseCase: SearchMoviesUseCaseProtocol {
@@ -16,9 +16,9 @@ public final class SearchMoviesUseCase: SearchMoviesUseCaseProtocol {
         self.repository = repository
     }
 
-    public func execute(query: String, page: Int = 1) async throws -> [Movie] {
+    public func execute(query: String, year: Int? = nil, page: Int = 1) async throws -> [Movie] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
-        return try await repository.searchMovies(query: trimmed, page: page)
+        return try await repository.searchMovies(query: trimmed, year: year, page: page)
     }
 }

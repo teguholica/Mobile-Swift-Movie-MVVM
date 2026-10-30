@@ -9,7 +9,7 @@ public enum TMDBEndpoint {
     case nowPlaying(page: Int)
     case popular(page: Int)
     case topRated(page: Int)
-    case search(query: String, page: Int)
+    case search(query: String, year: Int?, page: Int)
     case discover(filters: DiscoverFilters, page: Int)
     case genres
     case detail(id: Int)
@@ -40,11 +40,15 @@ public enum TMDBEndpoint {
         switch self {
         case .nowPlaying(let page), .popular(let page), .topRated(let page):
             return [URLQueryItem(name: "page", value: "\(page)")]
-        case .search(let query, let page):
-            return [
+        case .search(let query, let year, let page):
+            var items = [
                 URLQueryItem(name: "query", value: query),
                 URLQueryItem(name: "page", value: "\(page)")
             ]
+            if let year {
+                items.append(URLQueryItem(name: "year", value: "\(year)"))
+            }
+            return items
         case .discover(let filters, let page):
             var items = [
                 URLQueryItem(name: "page", value: "\(page)"),

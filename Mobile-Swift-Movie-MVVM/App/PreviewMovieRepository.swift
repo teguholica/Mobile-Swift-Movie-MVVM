@@ -52,7 +52,7 @@ final class PreviewMovieRepository: MovieRepositoryProtocol, @unchecked Sendable
         movies
     }
 
-    func searchMovies(query: String, page: Int) async throws -> [Movie] {
+    func searchMovies(query: String, year: Int?, page: Int) async throws -> [Movie] {
         movies
     }
 
