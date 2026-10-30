@@ -177,15 +177,12 @@ public struct NowPlayingCarouselView: View {
     }
 
     private var pageIndicator: some View {
-        let maxDots = min(movies.count, 7)
-        let displayIndex = min(activeIndex, maxDots - 1)
-
-        return HStack(spacing: 6) {
-            ForEach(0..<maxDots, id: \.self) { index in
+        HStack(spacing: 6) {
+            ForEach(0..<movies.count, id: \.self) { index in
                 Capsule()
-                    .fill(index == displayIndex ? CinemaTokens.Colors.accent : Color.secondary.opacity(0.35))
-                    .frame(width: index == displayIndex ? 18 : 6, height: 5)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.7), value: displayIndex)
+                    .fill(index == activeIndex ? CinemaTokens.Colors.accent : Color.secondary.opacity(0.35))
+                    .frame(width: index == activeIndex ? 18 : 6, height: 5)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.7), value: activeIndex)
             }
         }
     }
