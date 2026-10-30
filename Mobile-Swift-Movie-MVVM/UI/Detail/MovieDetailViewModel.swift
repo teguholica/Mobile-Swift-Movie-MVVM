@@ -6,6 +6,18 @@
 import Foundation
 import Observation
 
+public struct GenreSection: Identifiable, Equatable, Sendable {
+    public let genre: Genre
+    public let movies: [Movie]
+
+    public var id: Int { genre.id }
+
+    public init(genre: Genre, movies: [Movie]) {
+        self.genre = genre
+        self.movies = movies
+    }
+}
+
 @Observable
 public final class MovieDetailViewModel {
     public enum State: Equatable {
@@ -18,21 +30,26 @@ public final class MovieDetailViewModel {
     public var state: State = .loading
     public var movieDetail: MovieDetail?
     public var isFavorite: Bool = false
+    public var genreSections: [GenreSection] = []
+    public var isLoadingRelated: Bool = false
 
     private let getMovieDetailsUseCase: GetMovieDetailsUseCaseProtocol
     private let toggleFavoriteMovieUseCase: ToggleFavoriteMovieUseCaseProtocol
     private let checkIsFavoriteUseCase: CheckIsFavoriteUseCaseProtocol
+    private let discoverMoviesByGenreUseCase: DiscoverMoviesByGenreUseCaseProtocol
 
     public init(
         movieId: Int,
         getMovieDetailsUseCase: GetMovieDetailsUseCaseProtocol,
         toggleFavoriteMovieUseCase: ToggleFavoriteMovieUseCaseProtocol,
-        checkIsFavoriteUseCase: CheckIsFavoriteUseCaseProtocol
+        checkIsFavoriteUseCase: CheckIsFavoriteUseCaseProtocol,
+        discoverMoviesByGenreUseCase: DiscoverMoviesByGenreUseCaseProtocol
     ) {
         self.movieId = movieId
         self.getMovieDetailsUseCase = getMovieDetailsUseCase
         self.toggleFavoriteMovieUseCase = toggleFavoriteMovieUseCase
         self.checkIsFavoriteUseCase = checkIsFavoriteUseCase
+        self.discoverMoviesByGenreUseCase = discoverMoviesByGenreUseCase
     }
 
     @MainActor
@@ -49,9 +66,53 @@ public final class MovieDetailViewModel {
             self.movieDetail = detail
             self.isFavorite = favoriteStatus
             self.state = .loaded(detail)
+
+            await fetchGenreSections(for: detail)
         } catch {
             self.state = .error(error.localizedDescription)
         }
+    }
+
+    @MainActor
+    public func fetchGenreSections(for detail: MovieDetail) async {
+        let genres = detail.genres
+        guard !genres.isEmpty else {
+            genreSections = []
+            return
+        }
+
+        isLoadingRelated = true
+        let discoverUseCase = discoverMoviesByGenreUseCase
+        let currentMovieId = movieId
+
+        var moviesByGenreId: [Int: [Movie]] = [:]
+        await withTaskGroup(of: (Int, [Movie]).self) { group in
+            for genre in genres {
+                group.addTask {
+                    do {
+                        let movies = try await discoverUseCase.execute(genreId: genre.id, page: 1)
+                        return (genre.id, movies)
+                    } catch {
+                        return (genre.id, [])
+                    }
+                }
+            }
+
+            for await (genreId, movies) in group {
+                moviesByGenreId[genreId] = movies
+            }
+        }
+
+        var sections: [GenreSection] = []
+        for genre in genres {
+            let movies = (moviesByGenreId[genre.id] ?? []).filter { $0.id != currentMovieId }
+            if !movies.isEmpty {
+                sections.append(GenreSection(genre: genre, movies: movies))
+            }
+        }
+
+        genreSections = sections
+        isLoadingRelated = false
     }
 
     @MainActor
