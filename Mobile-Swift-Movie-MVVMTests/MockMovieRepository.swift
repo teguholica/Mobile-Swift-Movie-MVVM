@@ -15,6 +15,9 @@ final class MockMovieRepository: MovieRepositoryProtocol, @unchecked Sendable {
     var movieDetailsResult: Result<MovieDetail, Error> = .failure(URLError(.badURL))
     var getMovieDetailsCallCount = 0
     var requestedMovieDetailId: Int?
+    var personProfileResult: Result<PersonProfile, Error> = .failure(URLError(.badURL))
+    var getPersonProfileCallCount = 0
+    var requestedPersonProfileId: Int?
     var requestedDiscoverGenreId: Int?
     var requestedDiscoverPage: Int?
 
@@ -65,6 +68,12 @@ final class MockMovieRepository: MovieRepositoryProtocol, @unchecked Sendable {
         getMovieDetailsCallCount += 1
         requestedMovieDetailId = id
         return try movieDetailsResult.get()
+    }
+
+    func getPersonProfile(id: Int) async throws -> PersonProfile {
+        getPersonProfileCallCount += 1
+        requestedPersonProfileId = id
+        return try personProfileResult.get()
     }
 
     func getFavoriteMovies() async throws -> [Movie] {

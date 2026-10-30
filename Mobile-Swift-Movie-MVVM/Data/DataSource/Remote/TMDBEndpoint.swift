@@ -12,6 +12,7 @@ public enum TMDBEndpoint {
     case search(query: String, page: Int)
     case discover(genreId: Int, page: Int)
     case detail(id: Int)
+    case person(id: Int)
 
     var path: String {
         switch self {
@@ -27,6 +28,8 @@ public enum TMDBEndpoint {
             return "/discover/movie"
         case .detail(let id):
             return "/movie/\(id)"
+        case .person(let id):
+            return "/person/\(id)"
         }
     }
 
@@ -48,6 +51,10 @@ public enum TMDBEndpoint {
         case .detail:
             return [
                 URLQueryItem(name: "append_to_response", value: "videos,credits,watch/providers,recommendations,similar")
+            ]
+        case .person:
+            return [
+                URLQueryItem(name: "append_to_response", value: "movie_credits")
             ]
         }
     }

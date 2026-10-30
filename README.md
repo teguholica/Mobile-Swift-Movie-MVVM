@@ -42,6 +42,11 @@ A modern, native iOS movie discovery application built with **SwiftUI**, **Clean
 - **Film Stats**: Tabular display of duration, user rating score, and release year.
 - **Floating Floating Action**: One-tap toggle to add or remove movies from favorites.
 
+### Cast & Person Filmography
+- **Tappable Cast**: Tapping any cast member opens a person screen while keeping the current navigation stack.
+- **Info & Film Tabs**: Person biography, birthday, birthplace, and full acting filmography sorted newest-first.
+- **Recursive Exploration**: Any film in the filmography opens its movie detail, allowing continuous discovery.
+
 ### Favorites & Offline Watchlist
 - **SwiftData Persistence**: Local, high-performance offline storage isolated from network state.
 - **Dual View Layout**: Seamless switching between 2-column Poster Grid and detailed List View.
@@ -98,7 +103,7 @@ Mobile-Swift-Movie-MVVM/
 │   │   ├── Model/                  # Codable Data Transfer Objects (DTOs)
 │   │   └── Repository/             # Concrete implementations of Domain repositories
 │   ├── Domain/
-│   │   ├── Entity/                 # Pure business models (Movie, MovieDetail, Genre)
+│   │   ├── Entity/                 # Pure business models (Movie, MovieDetail, Genre, PersonProfile)
 │   │   ├── Repository/             # Repository protocol interfaces
 │   │   └── UseCase/                # Single-responsibility business use cases
 │   ├── UI/
@@ -106,6 +111,7 @@ Mobile-Swift-Movie-MVVM/
 │   │   ├── Detail/                 # Movie detail view & view model
 │   │   ├── Favorites/              # Favorites screen, list/grid toggle, undo toast
 │   │   ├── Home/                   # Spotlight marquee, Top-rated, Popular rows
+│   │   ├── Person/                 # Person profile, Info/Film tabs, filmography rows
 │   │   ├── Search/                 # Live search, genre discovery pills, grid
 │   │   ├── Settings/               # Theme manager, theme cards, version & attribution
 │   │   └── TabBar/                 # Custom cinema tab bar navigation
