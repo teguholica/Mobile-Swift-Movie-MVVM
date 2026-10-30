@@ -213,6 +213,23 @@ struct SearchViewModelTests {
         #expect(repository.getGenresCallCount == 1)
     }
 
+    @Test func testApplyingDraftWithoutYearKeepsOtherFilters() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+
+        await viewModel.applyFilters(
+            DiscoverFilters(yearRange: 2000...2010, minRating: 7.0)
+        )
+        var draft = viewModel.filters
+        draft.yearRange = nil
+        await viewModel.applyFilters(draft)
+
+        #expect(viewModel.filters.yearRange == nil)
+        #expect(viewModel.filters.minRating == 7.0)
+        #expect(viewModel.activeFilterCount == 1)
+        #expect(repository.requestedDiscoverFilters?.minRating == 7.0)
+    }
+
     @Test func testFilterContextReflectsQueryCategoryAndAdvancedFilters() async {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
@@ -307,21 +324,8 @@ struct SearchViewModelTests {
         await viewModel.applyFilters(DiscoverFilters(yearRange: 2000...2010))
         #expect(viewModel.activeFilterCount == 1)
 
-        await viewModel.clearYearRange()
+        await viewModel.applyFilters(DiscoverFilters())
         #expect(viewModel.activeFilterCount == 0)
-    }
-
-    @Test func testClearingYearRangeRefetchesWithoutRange() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
-        await viewModel.clearYearRange()
-
-        #expect(viewModel.filters.yearRange == nil)
-        #expect(repository.requestedDiscoverFilters?.yearRange == nil)
-        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
     }
 
     @Test func testPaginationKeepsCommittedYearRange() async {
@@ -357,20 +361,6 @@ struct SearchViewModelTests {
         #expect(repository.requestedDiscoverFilters?.genreIds == [28])
     }
 
-    @Test func testClearingMinimumRatingRefetchesWithoutRating() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], minRating: 7.0))
-        await viewModel.clearMinRating()
-
-        #expect(viewModel.filters.minRating == nil)
-        #expect(viewModel.activeFilterCount == 0)
-        #expect(repository.requestedDiscoverFilters?.minRating == nil)
-        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
-    }
-
     @Test func testPaginationKeepsMinimumRating() async {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 10, title: "Action 1")])
@@ -396,20 +386,6 @@ struct SearchViewModelTests {
         #expect(viewModel.filters.sort == .rating)
         #expect(viewModel.activeFilterCount == 1)
         #expect(repository.requestedDiscoverFilters?.sort == .rating)
-    }
-
-    @Test func testClearingSortRestoresPopularity() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], sort: .newest))
-        await viewModel.clearSort()
-
-        #expect(viewModel.filters.sort == .popularity)
-        #expect(viewModel.activeFilterCount == 0)
-        #expect(repository.requestedDiscoverFilters?.sort == .popularity)
-        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
     }
 
     @Test func testPaginationKeepsSort() async {
@@ -488,18 +464,6 @@ struct SearchViewModelTests {
         #expect(viewModel.activeFilterCount == 1)
     }
 
-    @Test func testClearingSearchYearRefetchesSearchWithoutYear() async {
-        let (viewModel, repository) = makeSUT()
-        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
-
-        await viewModel.executeSearchImmediate(query: "Dune")
-        await viewModel.applyFilters(DiscoverFilters(searchYear: 2021))
-        await viewModel.clearSearchYear()
-
-        #expect(viewModel.filters.searchYear == nil)
-        #expect(repository.requestedSearchYear == nil)
-    }
-
     @Test func testSearchPaginationKeepsSearchYear() async {
         let (viewModel, repository) = makeSUT()
         repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
@@ -573,12 +537,24 @@ struct SearchViewModelTests {
 
         #expect(viewModel.state == .empty)
         #expect(viewModel.filters.yearRange == 2000...2010)
+        #expect(viewModel.hasFilterContext)
 
         await viewModel.resetAllFilters()
 
         #expect(viewModel.state == .initial)
         #expect(viewModel.filters == DiscoverFilters())
         #expect(viewModel.movies.isEmpty)
+        #expect(viewModel.hasFilterContext == false)
+    }
+
+    @Test func testFilterContextRemainsDuringErrorState() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .failure(URLError(.badURL))
+
+        await viewModel.applyFilters(DiscoverFilters(minRating: 7.0))
+
+        #expect(viewModel.hasFilterContext)
+        #expect(viewModel.state != .initial)
     }
 
     @Test func testSortOnlyApplyUsesDiscover() async {
