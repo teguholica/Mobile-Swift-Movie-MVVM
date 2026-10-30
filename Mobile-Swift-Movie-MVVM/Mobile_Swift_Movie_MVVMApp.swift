@@ -14,6 +14,11 @@ struct Mobile_Swift_Movie_MVVMApp: App {
     private let container: AppContainer
 
     init() {
+        URLCache.shared = URLCache(
+            memoryCapacity: 50 * 1024 * 1024,
+            diskCapacity: 200 * 1024 * 1024
+        )
+
         let schema = Schema([FavoriteMovieItem.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
