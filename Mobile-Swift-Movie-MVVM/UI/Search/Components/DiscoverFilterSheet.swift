@@ -10,6 +10,8 @@ struct DiscoverFilterSheet: View {
 
     @State private var draft: DiscoverFilters
     private let isTextMode: Bool
+    private let currentYear: Int
+    private let selectableYears: [Int]
     private let onApply: (DiscoverFilters) -> Void
 
     init(
@@ -17,17 +19,12 @@ struct DiscoverFilterSheet: View {
         isTextMode: Bool,
         onApply: @escaping (DiscoverFilters) -> Void
     ) {
+        let currentYear = Calendar.current.component(.year, from: Date())
+        self.currentYear = currentYear
+        self.selectableYears = Array((1950...currentYear).reversed())
         _draft = State(initialValue: filters)
         self.isTextMode = isTextMode
         self.onApply = onApply
-    }
-
-    private var currentYear: Int {
-        Calendar.current.component(.year, from: Date())
-    }
-
-    private var selectableYears: [Int] {
-        Array((1950...currentYear).reversed())
     }
 
     var body: some View {
@@ -87,21 +84,42 @@ struct DiscoverFilterSheet: View {
     }
 
     private var searchYearRow: some View {
-        HStack {
-            Text("Year")
-            Spacer()
-            yearMenu(label: draft.searchYear.map(String.init) ?? "Any") { year in
-                draft.searchYear = year
+        Picker("Year", selection: $draft.searchYear) {
+            Text("Any").tag(Int?.none)
+            ForEach(selectableYears, id: \.self) { year in
+                Text(String(year)).tag(Int?.some(year))
             }
-            .accessibilityLabel("Release year")
         }
+        .pickerStyle(.menu)
     }
 
     private var fromYearRow: some View {
-        HStack {
-            Text("From")
-            Spacer()
-            yearMenu(label: draft.yearRange.map { String($0.lowerBound) } ?? "Any") { year in
+        Picker("From", selection: fromSelection) {
+            Text("Any").tag(Int?.none)
+            ForEach(selectableYears, id: \.self) { year in
+                Text(String(year)).tag(Int?.some(year))
+            }
+        }
+        .pickerStyle(.menu)
+    }
+
+    private var toYearRow: some View {
+        Picker("To", selection: toSelection) {
+            Text("Any").tag(Int?.none)
+            if let lowerBound = draft.yearRange?.lowerBound {
+                ForEach(Array((lowerBound...currentYear).reversed()), id: \.self) { year in
+                    Text(String(year)).tag(Int?.some(year))
+                }
+            }
+        }
+        .pickerStyle(.menu)
+        .disabled(draft.yearRange == nil)
+    }
+
+    private var fromSelection: Binding<Int?> {
+        Binding(
+            get: { draft.yearRange?.lowerBound },
+            set: { year in
                 guard let year else {
                     draft.yearRange = nil
                     return
@@ -109,23 +127,21 @@ struct DiscoverFilterSheet: View {
                 let upper = max(year, min(draft.yearRange?.upperBound ?? currentYear, currentYear))
                 draft.yearRange = year...upper
             }
-            .accessibilityLabel("From year")
-        }
+        )
     }
 
-    private func yearMenu(label: String, onSelect: @escaping (Int?) -> Void) -> some View {
-        Menu {
-            Button("Any") {
-                onSelect(nil)
+    private var toSelection: Binding<Int?> {
+        Binding(
+            get: {
+                guard let yearRange = draft.yearRange else { return nil }
+                return yearRange.upperBound == currentYear ? nil : yearRange.upperBound
+            },
+            set: { year in
+                guard let lowerBound = draft.yearRange?.lowerBound else { return }
+                let upper = year ?? currentYear
+                draft.yearRange = lowerBound...max(lowerBound, upper)
             }
-            ForEach(selectableYears, id: \.self) { year in
-                Button(String(year)) {
-                    onSelect(year)
-                }
-            }
-        } label: {
-            Text(label)
-        }
+        )
     }
 
     private var ratingPicker: some View {
@@ -147,33 +163,5 @@ struct DiscoverFilterSheet: View {
         }
         .pickerStyle(.segmented)
         .accessibilityLabel("Sort by")
-    }
-
-    private var toYearLabel: String {
-        guard let yearRange = draft.yearRange else { return "Any" }
-        return yearRange.upperBound == currentYear ? "Any" : String(yearRange.upperBound)
-    }
-
-    private var toYearRow: some View {
-        HStack {
-            Text("To")
-            Spacer()
-            Menu {
-                if let lower = draft.yearRange?.lowerBound {
-                    Button("Any") {
-                        draft.yearRange = lower...currentYear
-                    }
-                    ForEach(Array((lower...currentYear).reversed()), id: \.self) { year in
-                        Button(String(year)) {
-                            draft.yearRange = lower...year
-                        }
-                    }
-                }
-            } label: {
-                Text(toYearLabel)
-            }
-            .disabled(draft.yearRange == nil)
-            .accessibilityLabel("To year")
-        }
     }
 }
