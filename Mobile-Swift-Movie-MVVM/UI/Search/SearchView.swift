@@ -7,19 +7,14 @@ import SwiftUI
 
 public struct SearchView: View {
     @State private var viewModel: SearchViewModel
-    public var onSelectMovie: ((Movie) -> Void)?
 
     private let columns = [
         GridItem(.flexible(), spacing: 14),
         GridItem(.flexible(), spacing: 14)
     ]
 
-    public init(
-        viewModel: SearchViewModel,
-        onSelectMovie: ((Movie) -> Void)? = nil
-    ) {
+    public init(viewModel: SearchViewModel) {
         _viewModel = State(initialValue: viewModel)
-        self.onSelectMovie = onSelectMovie
     }
 
     public var body: some View {
@@ -104,9 +99,6 @@ public struct SearchView: View {
                         moviePosterCard(for: movie)
                     }
                     .buttonStyle(.plain)
-                    .simultaneousGesture(TapGesture().onEnded {
-                        onSelectMovie?(movie)
-                    })
                     .onAppear {
                         if movie.id == viewModel.movies.suffix(4).first?.id {
                             Task {

@@ -7,11 +7,9 @@ import SwiftUI
 
 public struct MovieRowView: View {
     public let movie: Movie
-    public var onSelect: (() -> Void)?
 
-    public init(movie: Movie, onSelect: (() -> Void)? = nil) {
+    public init(movie: Movie) {
         self.movie = movie
-        self.onSelect = onSelect
     }
 
     public var body: some View {
@@ -68,8 +66,5 @@ public struct MovieRowView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .simultaneousGesture(TapGesture().onEnded {
-            onSelect?()
-        })
     }
 }

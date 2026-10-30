@@ -7,11 +7,9 @@ import SwiftUI
 
 public struct TopRatedCarouselView: View {
     public let movies: [Movie]
-    public var onSelectMovie: ((Movie) -> Void)?
 
-    public init(movies: [Movie], onSelectMovie: ((Movie) -> Void)? = nil) {
+    public init(movies: [Movie]) {
         self.movies = movies
-        self.onSelectMovie = onSelectMovie
     }
 
     public var body: some View {
@@ -36,9 +34,6 @@ public struct TopRatedCarouselView: View {
                             topRatedCard(for: movie, rank: index + 1)
                         }
                         .buttonStyle(.plain)
-                        .simultaneousGesture(TapGesture().onEnded {
-                            onSelectMovie?(movie)
-                        })
                     }
                 }
                 .padding(.horizontal)
