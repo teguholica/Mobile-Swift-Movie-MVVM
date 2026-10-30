@@ -32,4 +32,14 @@ public struct DiscoverFilters: Equatable, Sendable {
         self.sort = sort
         self.searchYear = searchYear
     }
+
+    public func withYearRange(_ yearRange: ClosedRange<Int>?) -> DiscoverFilters {
+        DiscoverFilters(
+            genreIds: genreIds,
+            yearRange: yearRange,
+            minRating: minRating,
+            sort: sort,
+            searchYear: searchYear
+        )
+    }
 }
