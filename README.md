@@ -32,9 +32,9 @@ A modern, native iOS movie discovery application built with **SwiftUI**, **Clean
 - **Top Rated Showcase**: Visual ranking leaderboard featuring oversized numbers and high-resolution posters.
 - **Popular Movies**: Infinite scrolling horizontal row with seamless pagination and deduplication.
 
-### Search & Thematic Exploration
-- **Live Debounced Search**: Instant movie searching with 400ms debouncing to minimize redundant network requests.
-- **Category Browsing**: Multi-select category sheet with OR semantics, plus a pinned filter bar for year, rating, and sort.
+### Search
+- **Live Debounced Search**: Instant movie searching with 500ms debouncing to minimize redundant network requests.
+- **Year Filter**: An optional single-release-year menu that narrows title searches.
 - **Poster Grid**: Adaptive two-column responsive grid with integrated rating badges.
 
 ### Discover
@@ -117,7 +117,7 @@ Mobile-Swift-Movie-MVVM/
 │   │   ├── Favorites/              # Favorites screen, list/grid toggle, undo toast
 │   │   ├── Home/                   # Spotlight marquee, Top-rated, Popular rows
 │   │   ├── Person/                 # Person profile, Info/Film tabs, filmography rows
-│   │   ├── Search/                  # Live search, year picker, filter and category sheets
+│   │   ├── Search/                  # Live search, year filter, results grid
 │   │   ├── Settings/               # Theme manager, theme cards, version & attribution
 │   │   └── TabBar/                 # Custom cinema tab bar navigation
 │   └── Mobile_Swift_Movie_MVVMApp.swift # Application entry point
