@@ -16,18 +16,22 @@ struct MovieDetailViewModelTests {
         let detailUseCase = GetMovieDetailsUseCase(repository: repository)
         let toggleUseCase = ToggleFavoriteMovieUseCase(repository: repository)
         let checkUseCase = CheckIsFavoriteUseCase(repository: repository)
-        let discoverUseCase = DiscoverMoviesByGenreUseCase(repository: repository)
         let viewModel = MovieDetailViewModel(
             movieId: movieId,
             getMovieDetailsUseCase: detailUseCase,
             toggleFavoriteMovieUseCase: toggleUseCase,
-            checkIsFavoriteUseCase: checkUseCase,
-            discoverMoviesByGenreUseCase: discoverUseCase
+            checkIsFavoriteUseCase: checkUseCase
         )
         return (viewModel, repository)
     }
 
-    private func makeSampleDetail(id: Int = 550) -> MovieDetail {
+    private func makeSampleDetail(
+        id: Int = 550,
+        trailer: MovieVideo? = nil,
+        cast: [CastMember] = [],
+        providers: WatchProviders? = nil,
+        recommendedMovies: [Movie] = []
+    ) -> MovieDetail {
         MovieDetail(
             id: id,
             title: "Fight Club",
@@ -40,7 +44,11 @@ struct MovieDetailViewModelTests {
             runtime: 139,
             tagline: "Mischief. Mayhem. Soap.",
             status: "Released",
-            genres: [Genre(id: 18, name: "Drama"), Genre(id: 53, name: "Thriller")]
+            genres: [Genre(id: 18, name: "Drama"), Genre(id: 53, name: "Thriller")],
+            trailer: trailer,
+            cast: cast,
+            providers: providers,
+            recommendedMovies: recommendedMovies
         )
     }
 
@@ -108,113 +116,111 @@ struct MovieDetailViewModelTests {
         #expect(viewModel.isFavorite == false)
     }
 
-    @Test func testFetchDetailsLoadsAllGenreSectionsConcurrently() async {
+    @Test func testViewModelExposesSelectedTrailer() async {
         let (viewModel, repository) = makeSUT(movieId: 550)
-        let detail = makeSampleDetail(id: 550) // Has Drama (18) and Thriller (53)
-        repository.movieDetailsResult = .success(detail)
-        repository.discoverResultProvider = { genreId in
-            if genreId == 18 {
-                return .success([self.makeMovie(id: 101, title: "The Godfather"), self.makeMovie(id: 102, title: "Pulp Fiction")])
-            } else if genreId == 53 {
-                return .success([self.makeMovie(id: 201, title: "Shutter Island")])
-            }
-            return .success([])
-        }
-
-        await viewModel.fetchDetails()
-
-        #expect(viewModel.genreSections.count == 2)
-        #expect(viewModel.genreSections[0].genre.id == 18)
-        #expect(viewModel.genreSections[0].genre.name == "Drama")
-        #expect(viewModel.genreSections[0].movies.count == 2)
-        #expect(viewModel.genreSections[0].movies.first?.title == "The Godfather")
-
-        #expect(viewModel.genreSections[1].genre.id == 53)
-        #expect(viewModel.genreSections[1].genre.name == "Thriller")
-        #expect(viewModel.genreSections[1].movies.count == 1)
-        #expect(viewModel.genreSections[1].movies.first?.title == "Shutter Island")
-        #expect(viewModel.isLoadingRelated == false)
-    }
-
-    @Test func testGenreSectionsFilterOutCurrentMovie() async {
-        let (viewModel, repository) = makeSUT(movieId: 550)
-        let detail = makeSampleDetail(id: 550)
-        repository.movieDetailsResult = .success(detail)
-        let sameMovie = makeMovie(id: 550, title: "Fight Club")
-        let anotherMovie = makeMovie(id: 101, title: "Se7en")
-        repository.discoverResultProvider = { genreId in
-            .success([sameMovie, anotherMovie])
-        }
-
-        await viewModel.fetchDetails()
-
-        #expect(viewModel.genreSections.allSatisfy { section in
-            !section.movies.contains(where: { $0.id == 550 })
-        })
-        #expect(viewModel.genreSections.first?.movies.count == 1)
-        #expect(viewModel.genreSections.first?.movies.first?.id == 101)
-    }
-
-    @Test func testGenreSectionOmittedIfNoMoviesFound() async {
-        let (viewModel, repository) = makeSUT(movieId: 550)
-        let detail = makeSampleDetail(id: 550) // Drama (18), Thriller (53)
-        repository.movieDetailsResult = .success(detail)
-        repository.discoverResultProvider = { genreId in
-            if genreId == 18 {
-                return .success([self.makeMovie(id: 101, title: "Drama Movie")])
-            }
-            return .success([]) // Thriller returns nothing
-        }
-
-        await viewModel.fetchDetails()
-
-        #expect(viewModel.genreSections.count == 1)
-        #expect(viewModel.genreSections.first?.genre.id == 18)
-    }
-
-    @Test func testFailureInOneGenreDoesNotBreakOtherGenreSections() async {
-        struct NetworkFailure: Error {}
-
-        let (viewModel, repository) = makeSUT(movieId: 550)
-        let detail = makeSampleDetail(id: 550) // Drama (18), Thriller (53)
-        repository.movieDetailsResult = .success(detail)
-        repository.discoverResultProvider = { genreId in
-            if genreId == 18 {
-                return .failure(NetworkFailure())
-            }
-            return .success([self.makeMovie(id: 201, title: "Shutter Island")])
-        }
-
-        await viewModel.fetchDetails()
-
-        #expect(viewModel.state == .loaded(detail))
-        #expect(viewModel.genreSections.count == 1)
-        #expect(viewModel.genreSections.first?.genre.id == 53)
-        #expect(viewModel.isLoadingRelated == false)
-    }
-
-    @Test func testDetailWithEmptyGenresResultsInEmptyGenreSections() async {
-        let (viewModel, repository) = makeSUT(movieId: 550)
-        let detailNoGenres = MovieDetail(
-            id: 550,
-            title: "Indie Title",
-            overview: "No genres",
-            posterPath: nil,
-            backdropPath: nil,
-            releaseDate: "2024-01-01",
-            voteAverage: 6.0,
-            voteCount: 10,
-            runtime: 90,
-            tagline: nil,
-            status: "Released",
-            genres: []
+        let trailer = MovieVideo(
+            id: "v1",
+            key: "abc123",
+            name: "Official Trailer",
+            site: "YouTube",
+            type: "Trailer",
+            official: true
         )
-        repository.movieDetailsResult = .success(detailNoGenres)
+        repository.movieDetailsResult = .success(makeSampleDetail(trailer: trailer))
 
         await viewModel.fetchDetails()
 
-        #expect(viewModel.state == .loaded(detailNoGenres))
-        #expect(viewModel.genreSections.isEmpty)
-        #expect(viewModel.isLoadingRelated == false)
+        #expect(viewModel.movieDetail?.trailer?.key == "abc123")
+    }
+
+    @Test func testViewModelTrailerIsNilWhenDetailHasNoTrailer() async {
+        let (viewModel, repository) = makeSUT(movieId: 550)
+        repository.movieDetailsResult = .success(makeSampleDetail(trailer: nil))
+
+        await viewModel.fetchDetails()
+
+        #expect(viewModel.movieDetail?.trailer == nil)
+    }
+
+    @Test func testViewModelExposesCast() async {
+        let (viewModel, repository) = makeSUT(movieId: 550)
+        let cast = [
+            CastMember(id: 1, name: "Brad Pitt", character: "Tyler Durden", profilePath: "/brad.jpg"),
+            CastMember(id: 2, name: "Edward Norton", character: "Narrator", profilePath: nil)
+        ]
+        repository.movieDetailsResult = .success(makeSampleDetail(cast: cast))
+
+        await viewModel.fetchDetails()
+
+        #expect(viewModel.movieDetail?.cast.count == 2)
+        #expect(viewModel.movieDetail?.cast.first?.character == "Tyler Durden")
+    }
+
+    @Test func testViewModelCastIsEmptyWhenDetailHasNoCast() async {
+        let (viewModel, repository) = makeSUT(movieId: 550)
+        repository.movieDetailsResult = .success(makeSampleDetail(cast: []))
+
+        await viewModel.fetchDetails()
+
+        #expect(viewModel.movieDetail?.cast.isEmpty == true)
+    }
+
+    @Test func testViewModelExposesWatchProviders() async {
+        let (viewModel, repository) = makeSUT(movieId: 550)
+        let providers = WatchProviders(
+            link: URL(string: "https://www.themoviedb.org/movie/550/watch?locale=US"),
+            groups: [
+                ProviderGroup(
+                    kind: .stream,
+                    providers: [WatchProvider(id: 8, name: "Netflix", logoPath: "/netflix.png")]
+                )
+            ]
+        )
+        repository.movieDetailsResult = .success(makeSampleDetail(providers: providers))
+
+        await viewModel.fetchDetails()
+
+        #expect(viewModel.movieDetail?.providers?.groups.first?.providers.first?.name == "Netflix")
+    }
+
+    @Test func testViewModelWatchProvidersNilWhenDetailHasNone() async {
+        let (viewModel, repository) = makeSUT(movieId: 550)
+        repository.movieDetailsResult = .success(makeSampleDetail(providers: nil))
+
+        await viewModel.fetchDetails()
+
+        #expect(viewModel.movieDetail?.providers == nil)
+    }
+
+    @Test func testFetchDetailsExposesRecommendedMovies() async {
+        let (viewModel, repository) = makeSUT(movieId: 550)
+        let related = [
+            makeMovie(id: 101, title: "Se7en"),
+            makeMovie(id: 102, title: "The Game")
+        ]
+        repository.movieDetailsResult = .success(makeSampleDetail(recommendedMovies: related))
+
+        await viewModel.fetchDetails()
+
+        #expect(viewModel.movieDetail?.recommendedMovies.map(\.id) == [101, 102])
+    }
+
+    @Test func testFetchDetailsDoesNotRequestDiscoverPerGenre() async {
+        let (viewModel, repository) = makeSUT(movieId: 550)
+        repository.movieDetailsResult = .success(makeSampleDetail())
+
+        await viewModel.fetchDetails()
+
+        #expect(repository.requestedDiscoverGenreId == nil)
+        #expect(repository.getMovieDetailsCallCount == 1)
+    }
+
+    @Test func testRecommendedMoviesEmptyWhenNone() async {
+        let (viewModel, repository) = makeSUT(movieId: 550)
+        repository.movieDetailsResult = .success(makeSampleDetail(recommendedMovies: []))
+
+        await viewModel.fetchDetails()
+
+        #expect(viewModel.movieDetail?.recommendedMovies.isEmpty == true)
     }
 }

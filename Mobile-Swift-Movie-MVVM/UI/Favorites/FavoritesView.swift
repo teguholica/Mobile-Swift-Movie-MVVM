@@ -23,7 +23,7 @@ public struct FavoritesView: View {
         if let viewModel = viewModel {
             _viewModel = State(initialValue: viewModel)
         } else {
-            let repository = MovieRepositoryImpl()
+            let repository = MovieRepositoryImpl.shared
             let getUseCase = GetFavoriteMoviesUseCase(repository: repository)
             let removeUseCase = RemoveFavoriteMovieUseCase(repository: repository)
             _viewModel = State(
