@@ -21,12 +21,12 @@ public struct SearchView: View {
     public var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                if viewModel.hasFilterContext {
+                    filterBar
+                }
+
                 // Horizontal Genre Chips
                 genreChipsBar
-
-                if viewModel.activeFilterCount > 0 {
-                    filterChipsBar
-                }
 
                 // Content Area
                 Group {
@@ -56,11 +56,6 @@ public struct SearchView: View {
                 text: $viewModel.query,
                 prompt: "Search movies by title..."
             )
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    filterButton
-                }
-            }
             .sheet(isPresented: $isFilterSheetPresented) {
                 DiscoverFilterSheet(
                     filters: viewModel.currentDiscoverFilters,
@@ -77,110 +72,47 @@ public struct SearchView: View {
         }
     }
 
-    private var filterButton: some View {
-        Button {
-            isFilterSheetPresented = true
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "line.3.horizontal.decrease.circle")
+    private var filterBar: some View {
+        let count = viewModel.activeFilterCount
 
-                if viewModel.activeFilterCount > 0 {
-                    Text("\(viewModel.activeFilterCount)")
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(.black)
-                        .frame(minWidth: 16, minHeight: 16)
-                        .background(CinemaTokens.Colors.gold)
-                        .clipShape(Circle())
+        return HStack {
+            Button {
+                isFilterSheetPresented = true
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "line.3.horizontal.decrease")
+                        .font(.system(size: 13, weight: .semibold))
+
+                    Text("Filter")
+                        .font(.caption.weight(.semibold))
+
+                    if count > 0 {
+                        Text("· \(count)")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(CinemaTokens.Colors.gold)
+                    }
+
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 9, weight: .bold))
                 }
+                .foregroundStyle(CinemaTokens.Colors.textPrimary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(CinemaTokens.Colors.elevated)
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
+                )
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Filter")
+            .accessibilityValue(count == 0 ? "No filters" : "\(count) filters")
+
+            Spacer()
         }
-        .accessibilityLabel("Filters")
-        .accessibilityValue(
-            viewModel.activeFilterCount == 0
-                ? "No filters"
-                : "\(viewModel.activeFilterCount) filters"
-        )
-    }
-
-    private var filterChipsBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                if viewModel.isTextMode {
-                    if let searchYear = viewModel.filters.searchYear {
-                        filterChip(
-                            title: "Year \(searchYear)",
-                            accessibilityTitle: "release year \(searchYear)"
-                        ) {
-                            Task {
-                                await viewModel.clearSearchYear()
-                            }
-                        }
-                    }
-                } else {
-                    if let yearRange = viewModel.filters.yearRange {
-                        filterChip(title: "\(yearRange.lowerBound)–\(yearRange.upperBound)") {
-                            Task {
-                                await viewModel.clearYearRange()
-                            }
-                        }
-                    }
-
-                    if let minRating = viewModel.filters.minRating {
-                        filterChip(
-                            title: "★ \(Int(minRating))+",
-                            accessibilityTitle: "minimum rating \(Int(minRating))+"
-                        ) {
-                            Task {
-                                await viewModel.clearMinRating()
-                            }
-                        }
-                    }
-
-                    if !viewModel.filters.sort.isDefault {
-                        filterChip(
-                            title: viewModel.filters.sort.title,
-                            accessibilityTitle: "\(viewModel.filters.sort.title) sort"
-                        ) {
-                            Task {
-                                await viewModel.clearSort()
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-        }
-        .background(CinemaTokens.Colors.surface.opacity(0.6))
-    }
-
-    private func filterChip(
-        title: String,
-        accessibilityTitle: String? = nil,
-        onRemove: @escaping () -> Void
-    ) -> some View {
-        Button(action: onRemove) {
-            HStack(spacing: 6) {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(CinemaTokens.Colors.textPrimary)
-
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(CinemaTokens.Colors.textMuted)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(CinemaTokens.Colors.elevated)
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
-            )
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Remove filter \(accessibilityTitle ?? title)")
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
     }
 
     private var genreChipsBar: some View {
@@ -300,12 +232,20 @@ public struct SearchView: View {
                     .font(.headline.weight(.bold))
                     .foregroundStyle(CinemaTokens.Colors.textPrimary)
 
-                Text("Explore by title, tap a genre pill, or open Filters to narrow the catalogue.")
+                Text("Search by title, or browse by filters.")
                     .font(.subheadline)
                     .foregroundStyle(CinemaTokens.Colors.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
+
+            Button("Browse by filters") {
+                isFilterSheetPresented = true
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(CinemaTokens.Colors.gold)
+            .buttonStyle(.plain)
+            .accessibilityLabel("Browse by filters")
         }
         .padding(.vertical, 40)
     }

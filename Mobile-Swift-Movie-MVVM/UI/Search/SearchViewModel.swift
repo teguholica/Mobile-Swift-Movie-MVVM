@@ -303,33 +303,6 @@ public final class SearchViewModel {
     }
 
     @MainActor
-    public func clearYearRange() async {
-        await clearing { $0.yearRange = nil }
-    }
-
-    @MainActor
-    public func clearMinRating() async {
-        await clearing { $0.minRating = nil }
-    }
-
-    @MainActor
-    public func clearSort() async {
-        await clearing { $0.sort = .popularity }
-    }
-
-    @MainActor
-    public func clearSearchYear() async {
-        await clearing { $0.searchYear = nil }
-    }
-
-    @MainActor
-    private func clearing(_ mutate: (inout DiscoverFilters) -> Void) async {
-        var updated = filters
-        mutate(&updated)
-        await applyFilters(updated)
-    }
-
-    @MainActor
     public func resetAllFilters() async {
         searchTask?.cancel()
         genreFetchTask?.cancel()
