@@ -61,9 +61,7 @@ public struct HomeView: View {
             }
             .navigationTitle("Movie DB")
             .background(CinemaTokens.Colors.canvas.ignoresSafeArea())
-            .navigationDestination(for: Movie.self) { movie in
-                MovieDetailView(movieId: movie.id)
-            }
+            .appDestinations()
             .task {
                 await viewModel.fetchHomeData()
             }

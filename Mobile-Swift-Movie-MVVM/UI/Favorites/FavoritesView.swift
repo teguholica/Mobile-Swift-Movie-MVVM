@@ -72,13 +72,11 @@ public struct FavoritesView: View {
                     .accessibilityLabel("Toggle layout mode")
                 }
             }
-            .navigationDestination(for: Movie.self) { movie in
-                MovieDetailView(movieId: movie.id) {
-                    Task {
-                        await viewModel.fetchFavorites()
-                    }
+            .appDestinations(onFavoriteChanged: {
+                Task {
+                    await viewModel.fetchFavorites()
                 }
-            }
+            })
             .task {
                 await viewModel.fetchFavorites()
             }
@@ -101,7 +99,7 @@ public struct FavoritesView: View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 16) {
                 ForEach(viewModel.visibleFavorites) { movie in
-                    NavigationLink(value: movie) {
+                    NavigationLink(value: AppRoute.movie(id: movie.id)) {
                         gridPosterCard(for: movie)
                     }
                     .buttonStyle(.plain)

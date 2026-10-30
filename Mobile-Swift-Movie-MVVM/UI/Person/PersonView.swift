@@ -158,7 +158,7 @@ public struct PersonView: View {
         } else {
             LazyVStack(spacing: 10) {
                 ForEach(profile.credits) { credit in
-                    NavigationLink(destination: MovieDetailView(movieId: credit.id)) {
+                    NavigationLink(value: AppRoute.movie(id: credit.id)) {
                         PersonCreditRowView(credit: credit)
                     }
                     .buttonStyle(.plain)

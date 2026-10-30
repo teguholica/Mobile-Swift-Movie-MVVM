@@ -149,7 +149,7 @@ public struct NowPlayingCarouselView: View {
                     .shadow(color: .black.opacity(0.4), radius: 3, x: 0, y: 1)
 
                 HStack {
-                    NavigationLink(value: movie) {
+                    NavigationLink(value: AppRoute.movie(id: movie.id)) {
                         HStack(spacing: 5) {
                             Text("View Details")
                                 .font(.caption.weight(.semibold))

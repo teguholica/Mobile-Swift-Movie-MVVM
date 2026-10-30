@@ -32,7 +32,7 @@ public struct TopRatedCarouselView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 16) {
                     ForEach(Array(movies.enumerated()), id: \.element.id) { index, movie in
-                        NavigationLink(value: movie) {
+                        NavigationLink(value: AppRoute.movie(id: movie.id)) {
                             topRatedCard(for: movie, rank: index + 1)
                         }
                         .buttonStyle(.plain)
