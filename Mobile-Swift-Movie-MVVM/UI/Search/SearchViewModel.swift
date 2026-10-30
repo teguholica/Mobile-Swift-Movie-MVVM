@@ -101,6 +101,10 @@ public final class SearchViewModel {
         return count
     }
 
+    public var hasFilterContext: Bool {
+        isTextMode || hasDiscoveryContext
+    }
+
     private var hasDiscoveryContext: Bool {
         !selectedGenres.isEmpty || filters.hasConstraints
     }
@@ -251,15 +255,32 @@ public final class SearchViewModel {
     }
 
     @MainActor
+    public func applyCategory(_ genreIds: [Int]) async {
+        var draft = filters
+        draft.genreIds = genreIds
+        await applyFilters(draft)
+    }
+
+    @MainActor
     public func applyFilters(_ draft: DiscoverFilters) async {
-        if isTextMode {
+        let mappedGenres = draft.genreIds.compactMap { id in
+            genres.first(where: { $0.id == id })
+                ?? Genre.popularPresets.first(where: { $0.id == id })
+        }
+        let selectsCategory = !mappedGenres.isEmpty
+
+        if isTextMode && !selectsCategory {
             filters.searchYear = draft.searchYear
             await executeSearchImmediate(query: query)
             return
         }
 
+        if selectsCategory {
+            setQuery("")
+        }
+        selectedGenres = mappedGenres
         filters = DiscoverFilters(
-            genreIds: selectedGenres.map(\.id),
+            genreIds: mappedGenres.map(\.id),
             yearRange: draft.yearRange,
             minRating: draft.minRating,
             sort: draft.sort,
