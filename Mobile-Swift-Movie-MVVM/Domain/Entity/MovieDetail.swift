@@ -18,6 +18,10 @@ public struct MovieDetail: Identifiable, Equatable, Sendable {
     public let tagline: String?
     public let status: String?
     public let genres: [Genre]
+    public let trailer: MovieVideo?
+    public let cast: [CastMember]
+    public let providers: WatchProviders?
+    public let recommendedMovies: [Movie]
 
     public init(
         id: Int,
@@ -31,7 +35,11 @@ public struct MovieDetail: Identifiable, Equatable, Sendable {
         runtime: Int?,
         tagline: String?,
         status: String?,
-        genres: [Genre]
+        genres: [Genre],
+        trailer: MovieVideo? = nil,
+        cast: [CastMember] = [],
+        providers: WatchProviders? = nil,
+        recommendedMovies: [Movie] = []
     ) {
         self.id = id
         self.title = title
@@ -45,6 +53,10 @@ public struct MovieDetail: Identifiable, Equatable, Sendable {
         self.tagline = tagline
         self.status = status
         self.genres = genres
+        self.trailer = trailer
+        self.cast = cast
+        self.providers = providers
+        self.recommendedMovies = recommendedMovies
     }
 
     public var formattedRuntime: String {

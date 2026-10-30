@@ -18,6 +18,11 @@ public struct MovieDetailDTO: Decodable, Sendable {
     public let tagline: String?
     public let status: String?
     public let genres: [GenreDTO]?
+    public let videos: MovieVideosResponseDTO?
+    public let credits: MovieCreditsResponseDTO?
+    public let watchProviders: WatchProvidersResponseDTO?
+    public let recommendations: MovieResponseDTO?
+    public let similar: MovieResponseDTO?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -32,9 +37,19 @@ public struct MovieDetailDTO: Decodable, Sendable {
         case tagline
         case status
         case genres
+        case videos
+        case credits
+        case watchProviders = "watch/providers"
+        case recommendations
+        case similar
     }
 
-    public func toDomain() -> MovieDetail {
+    public func toDomain(
+        trailer: MovieVideo?,
+        cast: [CastMember],
+        providers: WatchProviders?,
+        recommendedMovies: [Movie]
+    ) -> MovieDetail {
         MovieDetail(
             id: id,
             title: title,
@@ -47,7 +62,11 @@ public struct MovieDetailDTO: Decodable, Sendable {
             runtime: runtime,
             tagline: tagline,
             status: status,
-            genres: (genres ?? []).map { $0.toDomain() }
+            genres: (genres ?? []).map { $0.toDomain() },
+            trailer: trailer,
+            cast: cast,
+            providers: providers,
+            recommendedMovies: recommendedMovies
         )
     }
 }

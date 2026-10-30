@@ -21,7 +21,7 @@ public struct SearchView: View {
         if let viewModel = viewModel {
             _viewModel = State(initialValue: viewModel)
         } else {
-            let repository = MovieRepositoryImpl()
+            let repository = MovieRepositoryImpl.shared
             let searchUseCase = SearchMoviesUseCase(repository: repository)
             let discoverUseCase = DiscoverMoviesByGenreUseCase(repository: repository)
             _viewModel = State(

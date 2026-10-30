@@ -9,6 +9,7 @@ public struct MovieDetailView: View {
     @State private var viewModel: MovieDetailViewModel
     @State private var isOverviewExpanded: Bool = false
     @State private var favoriteScale: CGFloat = 1.0
+    @State private var selectedTrailerPresentation: TrailerPresentation?
     public var onToggleFavorite: (() -> Void)?
 
     public init(
@@ -19,18 +20,16 @@ public struct MovieDetailView: View {
         if let viewModel = viewModel {
             _viewModel = State(initialValue: viewModel)
         } else {
-            let repository = MovieRepositoryImpl()
+            let repository = MovieRepositoryImpl.shared
             let detailUseCase = GetMovieDetailsUseCase(repository: repository)
             let toggleUseCase = ToggleFavoriteMovieUseCase(repository: repository)
             let checkUseCase = CheckIsFavoriteUseCase(repository: repository)
-            let discoverUseCase = DiscoverMoviesByGenreUseCase(repository: repository)
             _viewModel = State(
                 initialValue: MovieDetailViewModel(
                     movieId: movieId,
                     getMovieDetailsUseCase: detailUseCase,
                     toggleFavoriteMovieUseCase: toggleUseCase,
-                    checkIsFavoriteUseCase: checkUseCase,
-                    discoverMoviesByGenreUseCase: discoverUseCase
+                    checkIsFavoriteUseCase: checkUseCase
                 )
             )
         }
@@ -86,6 +85,12 @@ public struct MovieDetailView: View {
         }
         .task {
             await viewModel.fetchDetails()
+        }
+        .sheet(item: $selectedTrailerPresentation) { presentation in
+            TrailerSheetView(
+                video: presentation.video,
+                movieTitle: presentation.title
+            )
         }
     }
 
@@ -150,6 +155,30 @@ public struct MovieDetailView: View {
                                 .font(.title2.weight(.bold))
                                 .foregroundStyle(CinemaTokens.Colors.textPrimary)
                                 .lineLimit(3)
+
+                            if let trailer = detail.trailer {
+                                Button {
+                                    selectedTrailerPresentation = TrailerPresentation(
+                                        video: trailer,
+                                        title: detail.title
+                                    )
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 11, weight: .bold))
+                                        Text("Watch Trailer")
+                                            .font(.caption.weight(.semibold))
+                                    }
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 7)
+                                    .background(CinemaTokens.Colors.crimson)
+                                    .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.top, 4)
+                                .accessibilityLabel("Watch trailer for \(detail.title)")
+                            }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -181,7 +210,18 @@ public struct MovieDetailView: View {
                         }
                     }
 
-                    // 4. Storyline Section with Expandable Disclosure
+                    // 4. Where to Watch
+                    if let providers = detail.providers,
+                       providers.link != nil || !providers.groups.isEmpty {
+                        WatchProvidersSectionView(providers: providers)
+                    }
+
+                    // 5. Cast Row
+                    if !detail.cast.isEmpty {
+                        castSection(for: detail.cast)
+                    }
+
+                    // 6. Storyline Section with Expandable Disclosure
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Storyline")
                             .font(.headline.weight(.bold))
@@ -216,8 +256,8 @@ public struct MovieDetailView: View {
                     }
                     .padding(.horizontal, 20)
 
-                    // 5. All Related Genre Sections ("More Like This")
-                    allRelatedGenreSections(detail: detail)
+                    // 7. More Like This
+                    relatedMoviesSection(for: detail)
                 }
                 .frame(width: screenWidth)
                 .padding(.bottom, 40)
@@ -228,9 +268,8 @@ public struct MovieDetailView: View {
     }
 
     @ViewBuilder
-    private func allRelatedGenreSections(detail: MovieDetail) -> some View {
-        if viewModel.isLoadingRelated && viewModel.genreSections.isEmpty {
-            // Initial shimmer placeholder
+    private func relatedMoviesSection(for detail: MovieDetail) -> some View {
+        if !detail.recommendedMovies.isEmpty {
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("MORE LIKE THIS")
@@ -238,59 +277,96 @@ public struct MovieDetailView: View {
                         .tracking(1.5)
                         .foregroundStyle(CinemaTokens.Colors.gold)
 
-                    Text("Loading Recommendations...")
+                    Text("More Like This")
                         .font(.title3.weight(.bold))
                         .foregroundStyle(CinemaTokens.Colors.textPrimary)
                 }
                 .padding(.horizontal, 20)
 
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 14) {
-                        ForEach(0..<4) { _ in
-                            RoundedRectangle(cornerRadius: CinemaTokens.Radius.card)
-                                .fill(CinemaTokens.Colors.elevated)
-                                .frame(width: 124, height: 186)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: CinemaTokens.Radius.card)
-                                        .stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
-                                )
+                    LazyHStack(spacing: 14) {
+                        ForEach(detail.recommendedMovies) { movie in
+                            NavigationLink(destination: MovieDetailView(movieId: movie.id, onToggleFavorite: onToggleFavorite)) {
+                                relatedMovieCard(for: movie)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 20)
                 }
             }
-        } else if !viewModel.genreSections.isEmpty {
-            LazyVStack(alignment: .leading, spacing: 26) {
-                ForEach(viewModel.genreSections) { section in
-                    VStack(alignment: .leading, spacing: 14) {
-                        // Section Header with cinematic kicker
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("MORE LIKE THIS")
-                                .font(.caption2.weight(.heavy))
-                                .tracking(1.5)
-                                .foregroundStyle(CinemaTokens.Colors.gold)
+        }
+    }
 
-                            Text("More in \(section.genre.name)")
-                                .font(.title3.weight(.bold))
+    @ViewBuilder
+    private func castSection(for cast: [CastMember]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Cast")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(CinemaTokens.Colors.textPrimary)
+                .padding(.horizontal, 20)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 14) {
+                    ForEach(cast, id: \.uniqueID) { member in
+                        VStack(spacing: 6) {
+                            castAvatar(for: member)
+
+                            Text(member.name)
+                                .font(.caption.weight(.semibold))
                                 .foregroundStyle(CinemaTokens.Colors.textPrimary)
-                        }
-                        .padding(.horizontal, 20)
+                                .lineLimit(1)
 
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            LazyHStack(spacing: 14) {
-                                ForEach(section.movies) { movie in
-                                    NavigationLink(destination: MovieDetailView(movieId: movie.id, onToggleFavorite: onToggleFavorite)) {
-                                        relatedMovieCard(for: movie)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
+                            if !member.character.isEmpty {
+                                Text(member.character)
+                                    .font(.caption2)
+                                    .foregroundStyle(CinemaTokens.Colors.textMuted)
+                                    .lineLimit(1)
                             }
-                            .padding(.horizontal, 20)
                         }
+                        .frame(width: 84)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(
+                            member.character.isEmpty
+                                ? member.name
+                                : "\(member.name), \(member.character)"
+                        )
                     }
                 }
+                .padding(.horizontal, 20)
             }
         }
+    }
+
+    @ViewBuilder
+    private func castAvatar(for member: CastMember) -> some View {
+        ZStack {
+            CinemaTokens.Colors.elevated
+
+            if let path = member.profilePath, let url = TMDBConfig.imageURL(path: path, size: "w185") {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    default:
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 22))
+                            .foregroundStyle(CinemaTokens.Colors.textMuted)
+                    }
+                }
+            } else {
+                Image(systemName: "person.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(CinemaTokens.Colors.textMuted)
+            }
+        }
+        .frame(width: 64, height: 64)
+        .clipShape(Circle())
+        .overlay(
+            Circle().stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
+        )
     }
 
     private func relatedMovieCard(for movie: Movie) -> some View {
@@ -402,6 +478,13 @@ public struct MovieDetailView: View {
         )
         .padding(.horizontal, 20)
     }
+}
+
+private struct TrailerPresentation: Identifiable {
+    let video: MovieVideo
+    let title: String
+
+    var id: String { video.id }
 }
 
 #Preview {

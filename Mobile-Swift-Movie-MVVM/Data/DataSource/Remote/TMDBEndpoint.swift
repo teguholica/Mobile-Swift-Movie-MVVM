@@ -46,7 +46,9 @@ public enum TMDBEndpoint {
                 URLQueryItem(name: "sort_by", value: "popularity.desc")
             ]
         case .detail:
-            return []
+            return [
+                URLQueryItem(name: "append_to_response", value: "videos,credits,watch/providers,recommendations,similar")
+            ]
         }
     }
 

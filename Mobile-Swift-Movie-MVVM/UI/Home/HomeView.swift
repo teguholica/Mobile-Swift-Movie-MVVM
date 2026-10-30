@@ -16,7 +16,7 @@ public struct HomeView: View {
         if let viewModel = viewModel {
             _viewModel = State(initialValue: viewModel)
         } else {
-            let repository = MovieRepositoryImpl()
+            let repository = MovieRepositoryImpl.shared
             let nowPlayingUseCase = GetNowPlayingMoviesUseCase(repository: repository)
             let popularUseCase = GetPopularMoviesUseCase(repository: repository)
             let topRatedUseCase = GetTopRatedMoviesUseCase(repository: repository)
