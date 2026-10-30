@@ -27,7 +27,7 @@ public final class AppContainer {
     public func makeSearchViewModel() -> SearchViewModel {
         SearchViewModel(
             searchMoviesUseCase: SearchMoviesUseCase(repository: movieRepository),
-            discoverMoviesByGenreUseCase: DiscoverMoviesByGenreUseCase(repository: movieRepository)
+            discoverMoviesUseCase: DiscoverMoviesUseCase(repository: movieRepository)
         )
     }
 
@@ -44,7 +44,7 @@ public final class AppContainer {
             getMovieDetailsUseCase: GetMovieDetailsUseCase(repository: movieRepository),
             toggleFavoriteMovieUseCase: ToggleFavoriteMovieUseCase(repository: movieRepository),
             checkIsFavoriteUseCase: CheckIsFavoriteUseCase(repository: movieRepository),
-            discoverMoviesByGenreUseCase: DiscoverMoviesByGenreUseCase(repository: movieRepository)
+            discoverMoviesUseCase: DiscoverMoviesUseCase(repository: movieRepository)
         )
     }
 

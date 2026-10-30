@@ -10,7 +10,7 @@ public enum TMDBEndpoint {
     case popular(page: Int)
     case topRated(page: Int)
     case search(query: String, page: Int)
-    case discover(genreId: Int, page: Int)
+    case discover(filters: DiscoverFilters, page: Int)
     case detail(id: Int)
     case person(id: Int)
 
@@ -42,12 +42,31 @@ public enum TMDBEndpoint {
                 URLQueryItem(name: "query", value: query),
                 URLQueryItem(name: "page", value: "\(page)")
             ]
-        case .discover(let genreId, let page):
-            return [
-                URLQueryItem(name: "with_genres", value: "\(genreId)"),
+        case .discover(let filters, let page):
+            var items = [
                 URLQueryItem(name: "page", value: "\(page)"),
-                URLQueryItem(name: "sort_by", value: "popularity.desc")
+                URLQueryItem(name: "sort_by", value: filters.sort.tmdbSortValue)
             ]
+
+            if !filters.genreIds.isEmpty {
+                let value = filters.genreIds.map(String.init).joined(separator: "|")
+                items.append(URLQueryItem(name: "with_genres", value: value))
+            }
+
+            if let yearRange = filters.yearRange {
+                items.append(URLQueryItem(name: "primary_release_date.gte", value: "\(yearRange.lowerBound)-01-01"))
+                items.append(URLQueryItem(name: "primary_release_date.lte", value: "\(yearRange.upperBound)-12-31"))
+            }
+
+            if let minRating = filters.minRating {
+                items.append(URLQueryItem(name: "vote_average.gte", value: String(minRating)))
+            }
+
+            if filters.minRating != nil || filters.sort == .rating {
+                items.append(URLQueryItem(name: "vote_count.gte", value: "50"))
+            }
+
+            return items
         case .detail:
             return [
                 URLQueryItem(name: "append_to_response", value: "videos,credits,watch/providers,recommendations,similar")
@@ -76,5 +95,20 @@ public enum TMDBEndpoint {
         request.setValue("Bearer \(TMDBConfig.apiReadAccessToken)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 30
         return request
+    }
+}
+
+private extension DiscoverSort {
+    var tmdbSortValue: String {
+        switch self {
+        case .popularity:
+            return "popularity.desc"
+        case .rating:
+            return "vote_average.desc"
+        case .newest:
+            return "primary_release_date.desc"
+        case .title:
+            return "title.asc"
+        }
     }
 }

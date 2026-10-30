@@ -36,20 +36,20 @@ public final class MovieDetailViewModel {
     private let getMovieDetailsUseCase: GetMovieDetailsUseCaseProtocol
     private let toggleFavoriteMovieUseCase: ToggleFavoriteMovieUseCaseProtocol
     private let checkIsFavoriteUseCase: CheckIsFavoriteUseCaseProtocol
-    private let discoverMoviesByGenreUseCase: DiscoverMoviesByGenreUseCaseProtocol
+    private let discoverMoviesUseCase: DiscoverMoviesUseCaseProtocol
 
     public init(
         movieId: Int,
         getMovieDetailsUseCase: GetMovieDetailsUseCaseProtocol,
         toggleFavoriteMovieUseCase: ToggleFavoriteMovieUseCaseProtocol,
         checkIsFavoriteUseCase: CheckIsFavoriteUseCaseProtocol,
-        discoverMoviesByGenreUseCase: DiscoverMoviesByGenreUseCaseProtocol
+        discoverMoviesUseCase: DiscoverMoviesUseCaseProtocol
     ) {
         self.movieId = movieId
         self.getMovieDetailsUseCase = getMovieDetailsUseCase
         self.toggleFavoriteMovieUseCase = toggleFavoriteMovieUseCase
         self.checkIsFavoriteUseCase = checkIsFavoriteUseCase
-        self.discoverMoviesByGenreUseCase = discoverMoviesByGenreUseCase
+        self.discoverMoviesUseCase = discoverMoviesUseCase
     }
 
     @MainActor
@@ -82,7 +82,7 @@ public final class MovieDetailViewModel {
         }
 
         isLoadingRelated = true
-        let discoverUseCase = discoverMoviesByGenreUseCase
+        let discoverUseCase = discoverMoviesUseCase
         let currentMovieId = movieId
 
         var moviesByGenreId: [Int: [Movie]] = [:]
@@ -90,7 +90,10 @@ public final class MovieDetailViewModel {
             for genre in genres {
                 group.addTask {
                     do {
-                        let movies = try await discoverUseCase.execute(genreId: genre.id, page: 1)
+                        let movies = try await discoverUseCase.execute(
+                            filters: DiscoverFilters(genreIds: [genre.id]),
+                            page: 1
+                        )
                         return (genre.id, movies)
                     } catch {
                         return (genre.id, [])

@@ -16,13 +16,13 @@ struct MovieDetailViewModelTests {
         let detailUseCase = GetMovieDetailsUseCase(repository: repository)
         let toggleUseCase = ToggleFavoriteMovieUseCase(repository: repository)
         let checkUseCase = CheckIsFavoriteUseCase(repository: repository)
-        let discoverUseCase = DiscoverMoviesByGenreUseCase(repository: repository)
+        let discoverUseCase = DiscoverMoviesUseCase(repository: repository)
         let viewModel = MovieDetailViewModel(
             movieId: movieId,
             getMovieDetailsUseCase: detailUseCase,
             toggleFavoriteMovieUseCase: toggleUseCase,
             checkIsFavoriteUseCase: checkUseCase,
-            discoverMoviesByGenreUseCase: discoverUseCase
+            discoverMoviesUseCase: discoverUseCase
         )
         return (viewModel, repository)
     }
@@ -213,8 +213,8 @@ struct MovieDetailViewModelTests {
         let dramaMovies = [makeMovie(id: 101, title: "Drama One"), makeMovie(id: 102, title: "Drama Two")]
         let thrillerMovies = [makeMovie(id: 201, title: "Thriller One")]
         repository.movieDetailsResult = .success(makeSampleDetail())
-        repository.discoverResultProvider = { genreId in
-            switch genreId {
+        repository.discoverResultProvider = { filters in
+            switch filters.genreIds.first {
             case 18: return .success(dramaMovies)
             case 53: return .success(thrillerMovies)
             default: return .success([])
@@ -248,8 +248,8 @@ struct MovieDetailViewModelTests {
         let (viewModel, repository) = makeSUT(movieId: 550)
         let thrillerMovies = [makeMovie(id: 201, title: "Thriller One")]
         repository.movieDetailsResult = .success(makeSampleDetail())
-        repository.discoverResultProvider = { genreId in
-            genreId == 18 ? .failure(URLError(.badServerResponse)) : .success(thrillerMovies)
+        repository.discoverResultProvider = { filters in
+            filters.genreIds.first == 18 ? .failure(URLError(.badServerResponse)) : .success(thrillerMovies)
         }
 
         await viewModel.fetchDetails()
@@ -265,7 +265,7 @@ struct MovieDetailViewModelTests {
         await viewModel.fetchDetails()
 
         #expect(viewModel.genreSections.isEmpty)
-        #expect(repository.requestedDiscoverGenreId == nil)
+        #expect(repository.requestedDiscoverFilters == nil)
         #expect(viewModel.isLoadingRelated == false)
     }
 
