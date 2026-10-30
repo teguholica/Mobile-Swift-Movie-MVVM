@@ -67,9 +67,7 @@ public struct SearchView: View {
             }
             .background(CinemaTokens.Colors.canvas.ignoresSafeArea())
             .navigationTitle("Search & Discover")
-            .navigationDestination(for: Movie.self) { movie in
-                MovieDetailView(movieId: movie.id)
-            }
+            .appDestinations()
             .searchable(
                 text: $viewModel.query,
                 prompt: "Search movies by title..."
@@ -114,7 +112,7 @@ public struct SearchView: View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 16) {
                 ForEach(viewModel.movies) { movie in
-                    NavigationLink(value: movie) {
+                    NavigationLink(value: AppRoute.movie(id: movie.id)) {
                         moviePosterCard(for: movie)
                     }
                     .buttonStyle(.plain)

@@ -15,7 +15,7 @@ public struct MovieRowView: View {
     }
 
     public var body: some View {
-        NavigationLink(value: movie) {
+        NavigationLink(value: AppRoute.movie(id: movie.id)) {
             HStack(alignment: .center, spacing: 14) {
                 // 84x126 poster with 12pt corner radius and 0.5pt glass border
                 TMDBImageView(path: movie.posterPath, size: "w500")

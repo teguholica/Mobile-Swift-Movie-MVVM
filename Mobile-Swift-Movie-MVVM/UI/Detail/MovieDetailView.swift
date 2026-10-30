@@ -299,7 +299,7 @@ public struct MovieDetailView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 14) {
                     ForEach(movies) { movie in
-                        NavigationLink(destination: MovieDetailView(movieId: movie.id, onToggleFavorite: onToggleFavorite)) {
+                        NavigationLink(value: AppRoute.movie(id: movie.id)) {
                             relatedMovieCard(for: movie)
                         }
                         .buttonStyle(.plain)
@@ -353,8 +353,8 @@ public struct MovieDetailView: View {
                 HStack(alignment: .top, spacing: 14) {
                     ForEach(cast, id: \.uniqueID) { member in
                         NavigationLink(
-                            destination: PersonView(
-                                personId: member.id,
+                            value: AppRoute.person(
+                                id: member.id,
                                 name: member.name,
                                 profilePath: member.profilePath
                             )
@@ -553,5 +553,6 @@ private struct TrailerPresentation: Identifiable {
 #Preview {
     NavigationStack {
         MovieDetailView(movieId: 550)
+            .appDestinations()
     }
 }
