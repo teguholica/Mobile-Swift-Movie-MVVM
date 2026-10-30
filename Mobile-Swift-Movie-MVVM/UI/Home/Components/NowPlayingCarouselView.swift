@@ -9,20 +9,17 @@ public struct NowPlayingCarouselView: View {
     public let movies: [Movie]
     public var isFavorite: ((Movie) -> Bool)?
     public var onToggleFavorite: ((Movie) -> Void)?
-    public var onSelectMovie: ((Movie) -> Void)?
 
     @State private var scrolledID: Int?
 
     public init(
         movies: [Movie],
         isFavorite: ((Movie) -> Bool)? = nil,
-        onToggleFavorite: ((Movie) -> Void)? = nil,
-        onSelectMovie: ((Movie) -> Void)? = nil
+        onToggleFavorite: ((Movie) -> Void)? = nil
     ) {
         self.movies = movies
         self.isFavorite = isFavorite
         self.onToggleFavorite = onToggleFavorite
-        self.onSelectMovie = onSelectMovie
     }
 
     private var activeIndex: Int {

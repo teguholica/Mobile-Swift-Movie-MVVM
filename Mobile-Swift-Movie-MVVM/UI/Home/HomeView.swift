@@ -7,14 +7,9 @@ import SwiftUI
 
 public struct HomeView: View {
     @State private var viewModel: HomeViewModel
-    public var onSelectMovie: ((Movie) -> Void)?
 
-    public init(
-        viewModel: HomeViewModel,
-        onSelectMovie: ((Movie) -> Void)? = nil
-    ) {
+    public init(viewModel: HomeViewModel) {
         _viewModel = State(initialValue: viewModel)
-        self.onSelectMovie = onSelectMovie
     }
 
     public var body: some View {
@@ -65,17 +60,13 @@ public struct HomeView: View {
                             Task {
                                 await viewModel.toggleFavorite(movie: movie)
                             }
-                        },
-                        onSelectMovie: onSelectMovie
+                        }
                     )
                 }
 
                 // 2. Top Rated Carousel
                 if !viewModel.topRatedMovies.isEmpty {
-                    TopRatedCarouselView(
-                        movies: viewModel.topRatedMovies,
-                        onSelectMovie: onSelectMovie
-                    )
+                    TopRatedCarouselView(movies: viewModel.topRatedMovies)
                 }
 
                 // 3. Popular Movies List with Infinite Scrolling
@@ -103,18 +94,16 @@ public struct HomeView: View {
 
             LazyVStack(spacing: 12) {
                 ForEach(viewModel.popularMovies) { movie in
-                    MovieRowView(movie: movie) {
-                        onSelectMovie?(movie)
-                    }
-                    .padding(.horizontal)
-                    .onAppear {
-                        // Trigger pagination when reaching 3 items before the end
-                        if movie.id == viewModel.popularMovies.suffix(3).first?.id {
-                            Task {
-                                await viewModel.loadMorePopularMovies()
+                    MovieRowView(movie: movie)
+                        .padding(.horizontal)
+                        .onAppear {
+                            // Trigger pagination when reaching 3 items before the end
+                            if movie.id == viewModel.popularMovies.suffix(3).first?.id {
+                                Task {
+                                    await viewModel.loadMorePopularMovies()
+                                }
                             }
                         }
-                    }
                 }
 
                 if viewModel.isLoadingMorePopular {
