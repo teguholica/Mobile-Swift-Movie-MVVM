@@ -16,11 +16,6 @@ public struct SearchView: View {
     @State private var viewModel: SearchViewModel
     @State private var activeSheet: ActiveSheet?
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 14),
-        GridItem(.flexible(), spacing: 14)
-    ]
-
     public init(viewModel: SearchViewModel) {
         _viewModel = State(initialValue: viewModel)
     }
@@ -48,7 +43,7 @@ public struct SearchView: View {
                             }
                         }
                     case .loaded:
-                        resultsGridView
+                        resultsGrid
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -161,69 +156,17 @@ public struct SearchView: View {
         activeSheet = sheet
     }
 
-    private var resultsGridView: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(viewModel.movies) { movie in
-                    NavigationLink(value: AppRoute.movie(id: movie.id)) {
-                        moviePosterCard(for: movie)
-                    }
-                    .buttonStyle(.plain)
-                    .onAppear {
-                        if movie.id == viewModel.movies.suffix(4).first?.id {
-                            Task {
-                                await viewModel.loadMore()
-                            }
-                        }
-                    }
+    private var resultsGrid: some View {
+        MovieResultsGrid(
+            movies: viewModel.movies,
+            isLoadingMore: viewModel.isLoadingMore,
+            onLoadMore: {
+                Task {
+                    await viewModel.loadMore()
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-
-            if viewModel.isLoadingMore {
-                HStack(spacing: 8) {
-                    ProgressView()
-                    Text("Loading more titles...")
-                        .font(.caption)
-                        .foregroundStyle(CinemaTokens.Colors.textSecondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-            }
-        }
+        )
         .id(viewModel.resultsGeneration)
-    }
-
-    private func moviePosterCard(for movie: Movie) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ZStack(alignment: .topTrailing) {
-                TMDBImageView(path: movie.posterPath, size: "w500")
-                    .frame(maxWidth: .infinity)
-                    .aspectRatio(2/3, contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: CinemaTokens.Radius.card))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: CinemaTokens.Radius.card)
-                            .stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
-                    )
-
-                RatingBadgeView(rating: movie.voteAverage)
-                    .padding(8)
-            }
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(movie.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(CinemaTokens.Colors.textPrimary)
-                    .lineLimit(1)
-
-                if let date = movie.releaseDate, !date.isEmpty {
-                    Text(String(date.prefix(4)))
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(CinemaTokens.Colors.textMuted)
-                }
-            }
-        }
     }
 
     private var initialDiscoveryView: some View {
