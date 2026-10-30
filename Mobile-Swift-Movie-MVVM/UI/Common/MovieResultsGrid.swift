@@ -9,13 +9,37 @@ struct MovieResultsGrid: View {
     let movies: [Movie]
     let isLoadingMore: Bool
     let onLoadMore: () -> Void
+    let onRefresh: (() async -> Void)?
 
     private let columns = [
         GridItem(.flexible(), spacing: 14),
         GridItem(.flexible(), spacing: 14)
     ]
 
+    init(
+        movies: [Movie],
+        isLoadingMore: Bool,
+        onLoadMore: @escaping () -> Void,
+        onRefresh: (() async -> Void)? = nil
+    ) {
+        self.movies = movies
+        self.isLoadingMore = isLoadingMore
+        self.onLoadMore = onLoadMore
+        self.onRefresh = onRefresh
+    }
+
     var body: some View {
+        if let onRefresh {
+            scrollView
+                .refreshable {
+                    await onRefresh()
+                }
+        } else {
+            scrollView
+        }
+    }
+
+    private var scrollView: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: 16) {
                 ForEach(movies) { movie in
@@ -46,4 +70,3 @@ struct MovieResultsGrid: View {
         }
     }
 }
-

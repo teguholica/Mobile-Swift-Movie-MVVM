@@ -37,7 +37,15 @@ public struct DiscoverFilters: Equatable, Sendable {
         self.searchYear = searchYear
     }
 
+    public var activeFilterCount: Int {
+        var count = 0
+        if yearRange != nil { count += 1 }
+        if minRating != nil { count += 1 }
+        if !sort.isDefault { count += 1 }
+        return count
+    }
+
     public var hasConstraints: Bool {
-        yearRange != nil || minRating != nil || !sort.isDefault
+        activeFilterCount > 0
     }
 }

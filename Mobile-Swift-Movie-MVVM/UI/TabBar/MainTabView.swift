@@ -9,11 +9,13 @@ public struct MainTabView: View {
     @State private var selectedTab: Tab = .home
     @State private var homeViewModel: HomeViewModel
     @State private var searchViewModel: SearchViewModel
+    @State private var discoverViewModel: DiscoverViewModel
     @State private var favoritesViewModel: FavoritesViewModel
 
     public enum Tab: Hashable {
         case home
         case search
+        case discover
         case favorites
         case settings
     }
@@ -21,6 +23,7 @@ public struct MainTabView: View {
     public init(container: AppContainer) {
         _homeViewModel = State(initialValue: container.makeHomeViewModel())
         _searchViewModel = State(initialValue: container.makeSearchViewModel())
+        _discoverViewModel = State(initialValue: container.makeDiscoverViewModel())
         _favoritesViewModel = State(initialValue: container.makeFavoritesViewModel())
     }
 
@@ -37,6 +40,12 @@ public struct MainTabView: View {
                     Label("Search", systemImage: "magnifyingglass")
                 }
                 .tag(Tab.search)
+
+            DiscoverView(viewModel: discoverViewModel)
+                .tabItem {
+                    Label("Discover", systemImage: "sparkles.tv")
+                }
+                .tag(Tab.discover)
 
             FavoritesView(viewModel: favoritesViewModel)
                 .tabItem {

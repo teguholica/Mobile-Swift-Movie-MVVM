@@ -32,6 +32,13 @@ public final class AppContainer {
         )
     }
 
+    public func makeDiscoverViewModel() -> DiscoverViewModel {
+        DiscoverViewModel(
+            discoverMoviesUseCase: DiscoverMoviesUseCase(repository: movieRepository),
+            getGenresUseCase: GetGenresUseCase(repository: movieRepository)
+        )
+    }
+
     public func makeFavoritesViewModel() -> FavoritesViewModel {
         FavoritesViewModel(
             getFavoriteMoviesUseCase: GetFavoriteMoviesUseCase(repository: movieRepository),

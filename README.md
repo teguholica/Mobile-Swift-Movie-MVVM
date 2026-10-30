@@ -37,6 +37,10 @@ A modern, native iOS movie discovery application built with **SwiftUI**, **Clean
 - **Category Browsing**: Multi-select category sheet with OR semantics, plus a pinned filter bar for year, rating, and sort.
 - **Poster Grid**: Adaptive two-column responsive grid with integrated rating badges.
 
+### Discover
+
+- **Filter-Driven Browsing**: A dedicated tab for category browsing with a release-year range, minimum rating, and sort, plus a pinned filter bar that always shows the active state.
+
 ### Immersive Movie Detail
 - **Stretchy Parallax Header**: Dynamic cinema backdrop that gracefully stretches on pull-down without white gap blowouts.
 - **Film Stats**: Tabular display of duration, user rating score, and release year.
@@ -109,6 +113,7 @@ Mobile-Swift-Movie-MVVM/
 │   ├── UI/
 │   │   ├── Common/                 # Design tokens, RatingBadge, ErrorView, LoadingView
 │   │   ├── Detail/                 # Movie detail view & view model
+│   │   ├── Discover/               # Filter bar, category browsing, discover view model
 │   │   ├── Favorites/              # Favorites screen, list/grid toggle, undo toast
 │   │   ├── Home/                   # Spotlight marquee, Top-rated, Popular rows
 │   │   ├── Person/                 # Person profile, Info/Film tabs, filmography rows
