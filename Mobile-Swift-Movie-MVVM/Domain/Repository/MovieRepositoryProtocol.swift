@@ -12,6 +12,7 @@ public protocol MovieRepositoryProtocol: Sendable {
     func searchMovies(query: String, page: Int) async throws -> [Movie]
     func discoverMovies(genreId: Int, page: Int) async throws -> [Movie]
     func getMovieDetails(id: Int) async throws -> MovieDetail
+    func getPersonProfile(id: Int) async throws -> PersonProfile
 
     func getFavoriteMovies() async throws -> [Movie]
     func toggleFavorite(movie: Movie) async throws -> Bool

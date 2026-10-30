@@ -309,28 +309,39 @@ public struct MovieDetailView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 14) {
                     ForEach(cast, id: \.uniqueID) { member in
-                        VStack(spacing: 6) {
-                            castAvatar(for: member)
+                        NavigationLink(
+                            destination: PersonView(
+                                personId: member.id,
+                                name: member.name,
+                                profilePath: member.profilePath
+                            )
+                        ) {
+                            VStack(spacing: 6) {
+                                castAvatar(for: member)
 
-                            Text(member.name)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(CinemaTokens.Colors.textPrimary)
-                                .lineLimit(1)
-
-                            if !member.character.isEmpty {
-                                Text(member.character)
-                                    .font(.caption2)
-                                    .foregroundStyle(CinemaTokens.Colors.textMuted)
+                                Text(member.name)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(CinemaTokens.Colors.textPrimary)
                                     .lineLimit(1)
+
+                                if !member.character.isEmpty {
+                                    Text(member.character)
+                                        .font(.caption2)
+                                        .foregroundStyle(CinemaTokens.Colors.textMuted)
+                                        .lineLimit(1)
+                                }
                             }
+                            .frame(width: 84)
+                            .contentShape(Rectangle())
                         }
-                        .frame(width: 84)
+                        .buttonStyle(CastCellButtonStyle())
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel(
                             member.character.isEmpty
-                                ? member.name
-                                : "\(member.name), \(member.character)"
+                                ? "Films with \(member.name)"
+                                : "Films with \(member.name), \(member.character)"
                         )
+                        .accessibilityHint("Opens this person's filmography")
                     }
                 }
                 .padding(.horizontal, 20)
@@ -477,6 +488,15 @@ public struct MovieDetailView: View {
                 .stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
         )
         .padding(.horizontal, 20)
+    }
+}
+
+private struct CastCellButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
+            .opacity(configuration.isPressed ? 0.85 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

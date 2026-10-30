@@ -14,10 +14,19 @@ public final class MovieRepositoryImpl: MovieRepositoryProtocol {
         }
     }
 
+    private final class PersonProfileCacheEntry {
+        let profile: PersonProfile
+
+        init(_ profile: PersonProfile) {
+            self.profile = profile
+        }
+    }
+
     private let networkService: TMDBNetworkServiceProtocol
     private let localDataSource: SwiftDataFavoriteDataSourceProtocol
     private let regionCodeProvider: @Sendable () -> String
     private let detailCache = NSCache<NSString, MovieDetailCacheEntry>()
+    private let personCache = NSCache<NSString, PersonProfileCacheEntry>()
 
     public init(
         networkService: TMDBNetworkServiceProtocol = TMDBNetworkService(),
@@ -87,6 +96,48 @@ public final class MovieRepositoryImpl: MovieRepositoryProtocol {
 
         detailCache.setObject(MovieDetailCacheEntry(detail), forKey: cacheKey)
         return detail
+    }
+
+    public func getPersonProfile(id: Int) async throws -> PersonProfile {
+        let cacheKey = "\(id)" as NSString
+
+        if let cached = personCache.object(forKey: cacheKey) {
+            return cached.profile
+        }
+
+        let response: PersonDTO = try await networkService.request(.person(id: id))
+        let credits = Self.shapeCredits(response.movieCredits?.cast ?? [])
+        let profile = response.toDomain(credits: credits)
+
+        personCache.setObject(PersonProfileCacheEntry(profile), forKey: cacheKey)
+        return profile
+    }
+
+    private static func shapeCredits(_ credits: [PersonCreditDTO]) -> [PersonMovieCredit] {
+        let now = Date()
+        var seenMovieIds = Set<Int>()
+        var shaped: [(credit: PersonMovieCredit, releaseDate: Date)] = []
+
+        for dto in credits {
+            guard dto.id > 0, !dto.title.isEmpty else { continue }
+            guard let releaseDateValue = dto.releaseDate,
+                  !releaseDateValue.isEmpty,
+                  let releaseDate = PersonDateFormatting.parse(releaseDateValue),
+                  releaseDate <= now else {
+                continue
+            }
+            guard seenMovieIds.insert(dto.id).inserted else { continue }
+            shaped.append((dto.toDomain(), releaseDate))
+        }
+
+        return shaped
+            .sorted { lhs, rhs in
+                if lhs.releaseDate != rhs.releaseDate {
+                    return lhs.releaseDate > rhs.releaseDate
+                }
+                return lhs.credit.title < rhs.credit.title
+            }
+            .map(\.credit)
     }
 
     private func mapProviders(_ dto: WatchProvidersResponseDTO?, region: String) -> WatchProviders? {
