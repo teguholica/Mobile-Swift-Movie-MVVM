@@ -113,47 +113,6 @@ struct SearchViewModelTests {
         #expect(viewModel.movies.map { $0.id } == [1, 2])
     }
 
-    @Test func testToggleGenreFetchesDiscoveryMovies() async {
-        let (viewModel, repository) = makeSUT()
-        let actionMovies = [makeMovie(id: 10, title: "John Wick")]
-        repository.discoverResult = .success(actionMovies)
-
-        let genre = Genre(id: 28, name: "Action")
-        await viewModel.toggleGenre(genre)
-
-        #expect(viewModel.selectedGenres.map(\.id) == [28])
-        #expect(viewModel.state == .loaded)
-        #expect(viewModel.movies.count == 1)
-        #expect(viewModel.movies.first?.title == "John Wick")
-        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
-        #expect(repository.requestedDiscoverFilters?.sort == .popularity)
-    }
-
-    @Test func testToggleSameGenreOffResetsState() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        let genre = Genre(id: 28, name: "Action")
-        await viewModel.toggleGenre(genre)
-        #expect(viewModel.selectedGenres.map(\.id) == [28])
-
-        await viewModel.toggleGenre(genre)
-        #expect(viewModel.selectedGenres.isEmpty)
-        #expect(viewModel.movies.isEmpty)
-        #expect(viewModel.state == .initial)
-    }
-
-    @Test func testToggleMultipleGenresSendsAllGenreIds() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
-        await viewModel.toggleGenre(Genre(id: 35, name: "Comedy"))
-
-        #expect(viewModel.selectedGenres.map(\.id) == [28, 35])
-        #expect(repository.requestedDiscoverFilters?.genreIds == [28, 35])
-    }
-
     @Test func testGenresStartFromPresets() {
         let (viewModel, _) = makeSUT()
 
@@ -175,8 +134,7 @@ struct SearchViewModelTests {
     @Test func testLoadGenresPreservesSelectedGenreByID() async {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-        let preset = Genre(id: 878, name: "Sci-Fi")
-        await viewModel.toggleGenre(preset)
+        await viewModel.applyCategory([878])
 
         repository.genresResult = .success([
             Genre(id: 878, name: "Science Fiction"),
@@ -184,7 +142,7 @@ struct SearchViewModelTests {
         ])
         await viewModel.loadGenres()
 
-        #expect(viewModel.isSelected(preset))
+        #expect(viewModel.selectedGenres.map(\.id) == [878])
         #expect(viewModel.selectedGenres.first?.name == "Science Fiction")
         #expect(viewModel.genres.map(\.id) == [878, 37])
     }
@@ -252,6 +210,33 @@ struct SearchViewModelTests {
         #expect(viewModel.hasFilterContext)
     }
 
+    @Test func testCategorySummaryReflectsSelection() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+
+        #expect(viewModel.categorySummary == "Category")
+
+        await viewModel.applyCategory([28])
+        #expect(viewModel.categorySummary == "Category: Action")
+        #expect(viewModel.categoryAccessibilityLabel == "Category: Action")
+
+        await viewModel.applyCategory([28, 35])
+        #expect(viewModel.categorySummary == "Category: Action +1")
+        #expect(viewModel.categoryAccessibilityLabel == "Category: Action, Comedy")
+    }
+
+    @Test func testApplyingSameCategoryDoesNotRefetch() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+
+        await viewModel.applyCategory([28])
+        let calls = repository.discoverCallCount
+
+        await viewModel.applyCategory([28])
+
+        #expect(repository.discoverCallCount == calls)
+    }
+
     @Test func testActiveFilterCountExcludesCategory() async {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
@@ -305,7 +290,7 @@ struct SearchViewModelTests {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
 
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
 
         #expect(viewModel.filters.yearRange == 2000...2010)
@@ -332,7 +317,7 @@ struct SearchViewModelTests {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 10, title: "Action 1")])
 
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         repository.discoverResult = .success([makeMovie(id: 11, title: "Action 2")])
         await viewModel.loadMore()
         #expect(viewModel.page == 2)
@@ -352,7 +337,7 @@ struct SearchViewModelTests {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
 
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         await viewModel.applyFilters(DiscoverFilters(genreIds: [28], minRating: 7.0))
 
         #expect(viewModel.filters.minRating == 7.0)
@@ -365,7 +350,7 @@ struct SearchViewModelTests {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 10, title: "Action 1")])
 
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         await viewModel.applyFilters(DiscoverFilters(genreIds: [28], minRating: 7.0))
 
         repository.discoverResult = .success([makeMovie(id: 11, title: "Action 2")])
@@ -380,7 +365,7 @@ struct SearchViewModelTests {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
 
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         await viewModel.applyFilters(DiscoverFilters(genreIds: [28], sort: .rating))
 
         #expect(viewModel.filters.sort == .rating)
@@ -392,7 +377,7 @@ struct SearchViewModelTests {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 10, title: "Action 1")])
 
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         await viewModel.applyFilters(DiscoverFilters(genreIds: [28], sort: .title))
 
         repository.discoverResult = .success([makeMovie(id: 11, title: "Action 2")])
@@ -419,7 +404,7 @@ struct SearchViewModelTests {
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
         repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
 
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
 
         await viewModel.executeSearchImmediate(query: "Dune")
@@ -435,12 +420,12 @@ struct SearchViewModelTests {
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
         repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
 
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
         await viewModel.executeSearchImmediate(query: "Dune")
         await viewModel.applyFilters(DiscoverFilters(searchYear: 2021))
 
-        await viewModel.toggleGenre(Genre(id: 35, name: "Comedy"))
+        await viewModel.applyCategory([35])
 
         #expect(viewModel.query.isEmpty)
         #expect(viewModel.filters.yearRange == 2000...2010)
@@ -453,7 +438,7 @@ struct SearchViewModelTests {
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
         repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
 
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
         #expect(viewModel.activeFilterCount == 1)
 
@@ -483,7 +468,7 @@ struct SearchViewModelTests {
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
         repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
 
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
         await viewModel.executeSearchImmediate(query: "Dune")
         await viewModel.executeSearchImmediate(query: "")
@@ -494,13 +479,13 @@ struct SearchViewModelTests {
         #expect(repository.requestedDiscoverFilters?.genreIds == [])
     }
 
-    @Test func testRemovingLastGenreWithActiveFiltersRefetchesDiscover() async {
+    @Test func testClearingCategoryWithActiveFiltersRefetchesDiscover() async {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
 
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         await viewModel.applyFilters(DiscoverFilters(genreIds: [28], minRating: 7.0))
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([])
 
         #expect(viewModel.selectedGenres.isEmpty)
         #expect(viewModel.state == .loaded)
@@ -513,7 +498,7 @@ struct SearchViewModelTests {
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
         repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
 
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         await viewModel.applyFilters(
             DiscoverFilters(genreIds: [28], yearRange: 2000...2010, minRating: 7.0, sort: .rating)
         )
@@ -582,36 +567,23 @@ struct SearchViewModelTests {
         #expect(repository.requestedDiscoverFilters?.yearRange == 2000...2010)
     }
 
-    @Test func testRapidGenreTogglesCoalesceIntoOneRequest() async {
-        let (viewModel, repository) = makeSUT(debounce: .milliseconds(500))
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        let first = Task { await viewModel.toggleGenre(Genre(id: 28, name: "Action")) }
-        try? await Task.sleep(for: .milliseconds(50))
-        let second = Task { await viewModel.toggleGenre(Genre(id: 35, name: "Comedy")) }
-        _ = await (first.value, second.value)
-
-        #expect(repository.requestedDiscoverFiltersHistory.map(\.genreIds) == [[28, 35]])
-        #expect(repository.discoverCallCount == 1)
-    }
-
-    @Test func testSelectingGenreClearsQuery() async {
+    @Test func testSelectingCategoryClearsQuery() async {
         let (viewModel, repository) = makeSUT()
         repository.searchResult = .success([makeMovie(id: 1, title: "Batman")])
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
 
         await viewModel.executeSearchImmediate(query: "Batman")
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
 
         #expect(viewModel.query.isEmpty)
         #expect(viewModel.selectedGenres.map(\.id) == [28])
     }
 
-    @Test func testTypingQueryClearsSelectedGenres() async {
+    @Test func testTypingQueryClearsSelectedCategories() async {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
 
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         #expect(viewModel.selectedGenres.map(\.id) == [28])
 
         viewModel.query = "Dune"
@@ -619,13 +591,13 @@ struct SearchViewModelTests {
         #expect(viewModel.selectedGenres.isEmpty)
     }
 
-    @Test func testLoadMoreWithSelectedGenresPaginatesDiscovery() async {
+    @Test func testLoadMoreWithSelectedCategoriesPaginatesDiscovery() async {
         let (viewModel, repository) = makeSUT()
         let page1 = [makeMovie(id: 10, title: "Action 1")]
         let page2 = [makeMovie(id: 11, title: "Action 2")]
 
         repository.discoverResult = .success(page1)
-        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyCategory([28])
         #expect(viewModel.movies.count == 1)
         #expect(viewModel.page == 1)
 

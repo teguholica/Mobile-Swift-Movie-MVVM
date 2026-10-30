@@ -6,8 +6,15 @@
 import SwiftUI
 
 public struct SearchView: View {
+    private enum ActiveSheet: String, Identifiable {
+        case filters
+        case category
+
+        var id: String { rawValue }
+    }
+
     @State private var viewModel: SearchViewModel
-    @State private var isFilterSheetPresented = false
+    @State private var activeSheet: ActiveSheet?
 
     private let columns = [
         GridItem(.flexible(), spacing: 14),
@@ -24,9 +31,6 @@ public struct SearchView: View {
                 if viewModel.hasFilterContext {
                     filterBar
                 }
-
-                // Horizontal Genre Chips
-                genreChipsBar
 
                 // Content Area
                 Group {
@@ -56,18 +60,28 @@ public struct SearchView: View {
                 text: $viewModel.query,
                 prompt: "Search movies by title..."
             )
-            .sheet(isPresented: $isFilterSheetPresented) {
-                DiscoverFilterSheet(
-                    filters: viewModel.currentDiscoverFilters,
-                    isTextMode: viewModel.isTextMode
-                ) { draft in
-                    Task {
-                        await viewModel.applyFilters(draft)
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .filters:
+                    DiscoverFilterSheet(
+                        filters: viewModel.currentDiscoverFilters,
+                        isTextMode: viewModel.isTextMode
+                    ) { draft in
+                        Task {
+                            await viewModel.applyFilters(draft)
+                        }
+                    }
+                case .category:
+                    CategoryFilterSheet(
+                        selectedGenreIds: viewModel.selectedGenres.map(\.id),
+                        genres: viewModel.genres,
+                        isTextMode: viewModel.isTextMode
+                    ) { genreIds in
+                        Task {
+                            await viewModel.applyCategory(genreIds)
+                        }
                     }
                 }
-            }
-            .task {
-                await viewModel.loadGenres()
             }
         }
     }
@@ -77,7 +91,7 @@ public struct SearchView: View {
 
         return HStack {
             Button {
-                isFilterSheetPresented = true
+                open(.filters)
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "line.3.horizontal.decrease")
@@ -109,44 +123,42 @@ public struct SearchView: View {
             .accessibilityLabel("Filter")
             .accessibilityValue(count == 0 ? "No filters" : "\(count) filters")
 
+            Button {
+                open(.category)
+            } label: {
+                HStack(spacing: 5) {
+                    Text(viewModel.categorySummary)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 9, weight: .bold))
+                }
+                .foregroundStyle(CinemaTokens.Colors.textPrimary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(CinemaTokens.Colors.elevated)
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(viewModel.categoryAccessibilityLabel)
+
             Spacer()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
     }
 
-    private var genreChipsBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(viewModel.genres) { genre in
-                    let isSelected = viewModel.isSelected(genre)
-                    Button {
-                        let generator = UIImpactFeedbackGenerator(style: .light)
-                        generator.impactOccurred()
-                        Task {
-                            await viewModel.toggleGenre(genre)
-                        }
-                    } label: {
-                        Text(genre.name)
-                            .font(.caption.weight(isSelected ? .bold : .medium))
-                            .foregroundStyle(isSelected ? .black : CinemaTokens.Colors.textPrimary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(isSelected ? CinemaTokens.Colors.gold : CinemaTokens.Colors.elevated)
-                            .clipShape(Capsule())
-                            .overlay(
-                                Capsule()
-                                    .stroke(isSelected ? Color.clear : CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(isSelected ? .isSelected : [])
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+    private func open(_ sheet: ActiveSheet) {
+        Task {
+            await viewModel.loadGenres()
         }
-        .background(CinemaTokens.Colors.surface.opacity(0.6))
+        activeSheet = sheet
     }
 
     private var resultsGridView: some View {
@@ -240,7 +252,7 @@ public struct SearchView: View {
             }
 
             Button("Browse by filters") {
-                isFilterSheetPresented = true
+                open(.filters)
             }
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(CinemaTokens.Colors.gold)
