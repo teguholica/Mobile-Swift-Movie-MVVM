@@ -38,7 +38,6 @@ public final class SearchViewModel {
     private let getGenresUseCase: GetGenresUseCaseProtocol
     private let debounceDuration: Duration
     private var searchTask: Task<Void, Never>?
-    private var genreFetchTask: Task<Void, Never>?
     private var discoverGeneration = 0
     private var hasRequestedGenres = false
     private var suppressesQueryHandling = false
@@ -105,6 +104,17 @@ public final class SearchViewModel {
         isTextMode || hasDiscoveryContext
     }
 
+    public var categorySummary: String {
+        guard let first = selectedGenres.first else { return "Category" }
+        guard selectedGenres.count > 1 else { return "Category: \(first.name)" }
+        return "Category: \(first.name) +\(selectedGenres.count - 1)"
+    }
+
+    public var categoryAccessibilityLabel: String {
+        guard !selectedGenres.isEmpty else { return "Category" }
+        return "Category: \(selectedGenres.map(\.name).joined(separator: ", "))"
+    }
+
     private var hasDiscoveryContext: Bool {
         !selectedGenres.isEmpty || filters.hasConstraints
     }
@@ -113,10 +123,6 @@ public final class SearchViewModel {
         if !selectedGenres.isEmpty { return true }
         guard !isTextMode else { return false }
         return filters.hasConstraints
-    }
-
-    public func isSelected(_ genre: Genre) -> Bool {
-        selectedGenres.contains { $0.id == genre.id }
     }
 
     public func onQueryChanged(_ newQuery: String) {
@@ -130,7 +136,7 @@ public final class SearchViewModel {
                 let generation = discoverGeneration
                 let filters = currentDiscoverFilters
                 Task { @MainActor [weak self] in
-                    await self?.executeDiscover(filters: filters, generation: generation, debounce: .zero)
+                    await self?.executeDiscover(filters: filters, generation: generation)
                 }
             } else {
                 movies = []
@@ -144,7 +150,6 @@ public final class SearchViewModel {
         // Active text search clears the genre selection
         selectedGenres = []
         filters = currentDiscoverFilters
-        genreFetchTask?.cancel()
         discoverGeneration += 1
 
         searchTask = Task { @MainActor in
@@ -178,51 +183,10 @@ public final class SearchViewModel {
     }
 
     @MainActor
-    public func toggleGenre(_ genre: Genre) async {
-        genreFetchTask?.cancel()
-        searchTask?.cancel()
-
-        if isSelected(genre) {
-            selectedGenres.removeAll { $0.id == genre.id }
-        } else {
-            if !query.isEmpty {
-                query = ""
-            }
-            selectedGenres.append(genre)
-        }
-        filters = currentDiscoverFilters
-
-        guard hasDiscoveryContext else {
-            discoverGeneration += 1
-            resetResults()
-            return
-        }
-
-        discoverGeneration += 1
-        let generation = discoverGeneration
-        let filters = currentDiscoverFilters
-        state = .loading
-
-        let debounceDuration = self.debounceDuration
-        let task = Task { @MainActor [weak self] in
-            guard let self else { return }
-            await self.executeDiscover(
-                filters: filters,
-                generation: generation,
-                debounce: debounceDuration
-            )
-        }
-        genreFetchTask = task
-        await task.value
-    }
-
-    @MainActor
     private func executeDiscover(
         filters: DiscoverFilters,
-        generation: Int,
-        debounce: Duration
+        generation: Int
     ) async {
-        guard await waitForDebounce(debounce) else { return }
         guard generation == discoverGeneration else { return }
         guard let discoverMoviesUseCase else {
             state = .empty
@@ -256,6 +220,8 @@ public final class SearchViewModel {
 
     @MainActor
     public func applyCategory(_ genreIds: [Int]) async {
+        guard Set(genreIds) != Set(selectedGenres.map(\.id)) else { return }
+
         var draft = filters
         draft.genreIds = genreIds
         await applyFilters(draft)
@@ -294,18 +260,16 @@ public final class SearchViewModel {
             return
         }
 
-        genreFetchTask?.cancel()
         searchTask?.cancel()
         discoverGeneration += 1
         let generation = discoverGeneration
         state = .loading
-        await executeDiscover(filters: request, generation: generation, debounce: .zero)
+        await executeDiscover(filters: request, generation: generation)
     }
 
     @MainActor
     public func resetAllFilters() async {
         searchTask?.cancel()
-        genreFetchTask?.cancel()
         discoverGeneration += 1
 
         selectedGenres = []
@@ -335,8 +299,7 @@ public final class SearchViewModel {
             discoverGeneration += 1
             await executeDiscover(
                 filters: currentDiscoverFilters,
-                generation: discoverGeneration,
-                debounce: .zero
+                generation: discoverGeneration
             )
         } else {
             await executeSearchImmediate(query: query)
@@ -397,7 +360,6 @@ public final class SearchViewModel {
         self.selectedGenres = []
         filters = currentDiscoverFilters
         searchTask?.cancel()
-        genreFetchTask?.cancel()
         discoverGeneration += 1
 
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -405,8 +367,7 @@ public final class SearchViewModel {
             if filters.hasConstraints {
                 await executeDiscover(
                     filters: currentDiscoverFilters,
-                    generation: discoverGeneration,
-                    debounce: .zero
+                    generation: discoverGeneration
                 )
             } else {
                 resetResults()

@@ -34,7 +34,7 @@ A modern, native iOS movie discovery application built with **SwiftUI**, **Clean
 
 ### Search & Thematic Exploration
 - **Live Debounced Search**: Instant movie searching with 400ms debouncing to minimize redundant network requests.
-- **Genre Discovery**: Interactive, toggleable genre pills allowing one-tap thematic browsing (Action, Sci-Fi, Horror, etc.).
+- **Category Browsing**: Multi-select category sheet with OR semantics, plus a pinned filter bar for year, rating, and sort.
 - **Poster Grid**: Adaptive two-column responsive grid with integrated rating badges.
 
 ### Immersive Movie Detail
@@ -112,7 +112,7 @@ Mobile-Swift-Movie-MVVM/
 │   │   ├── Favorites/              # Favorites screen, list/grid toggle, undo toast
 │   │   ├── Home/                   # Spotlight marquee, Top-rated, Popular rows
 │   │   ├── Person/                 # Person profile, Info/Film tabs, filmography rows
-│   │   ├── Search/                 # Live search, genre discovery pills, grid
+│   │   ├── Search/                  # Live search, pinned filter bar, category sheet, grid
 │   │   ├── Settings/               # Theme manager, theme cards, version & attribution
 │   │   └── TabBar/                 # Custom cinema tab bar navigation
 │   └── Mobile_Swift_Movie_MVVMApp.swift # Application entry point
