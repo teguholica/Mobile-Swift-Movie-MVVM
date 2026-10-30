@@ -7,9 +7,11 @@ import SwiftUI
 
 public struct MovieRowView: View {
     public let movie: Movie
+    private let showsChevron: Bool
 
-    public init(movie: Movie) {
+    public init(movie: Movie, showsChevron: Bool = true) {
         self.movie = movie
+        self.showsChevron = showsChevron
     }
 
     public var body: some View {
@@ -50,10 +52,12 @@ public struct MovieRowView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(CinemaTokens.Colors.textMuted)
-                    .padding(.trailing, 4)
+                if showsChevron {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(CinemaTokens.Colors.textMuted)
+                        .padding(.trailing, 4)
+                }
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
