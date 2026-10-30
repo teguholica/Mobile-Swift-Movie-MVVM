@@ -30,7 +30,7 @@ public final class MovieRepositoryImpl: MovieRepositoryProtocol {
 
     public init(
         networkService: TMDBNetworkServiceProtocol = TMDBNetworkService(),
-        localDataSource: SwiftDataFavoriteDataSourceProtocol = SwiftDataFavoriteDataSource.createDefault(),
+        localDataSource: SwiftDataFavoriteDataSourceProtocol,
         regionCodeProvider: @escaping @Sendable () -> String = {
             Locale.current.region?.identifier ?? "US"
         }
@@ -39,8 +39,6 @@ public final class MovieRepositoryImpl: MovieRepositoryProtocol {
         self.localDataSource = localDataSource
         self.regionCodeProvider = regionCodeProvider
     }
-
-    public static let shared = MovieRepositoryImpl()
 
     public func getNowPlayingMovies(page: Int = 1) async throws -> [Movie] {
         let response: MovieResponseDTO = try await networkService.request(.nowPlaying(page: page))

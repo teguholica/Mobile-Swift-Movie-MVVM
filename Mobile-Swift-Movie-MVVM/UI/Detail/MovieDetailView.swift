@@ -13,28 +13,10 @@ public struct MovieDetailView: View {
     public var onToggleFavorite: (() -> Void)?
 
     public init(
-        movieId: Int,
-        viewModel: MovieDetailViewModel? = nil,
+        viewModel: MovieDetailViewModel,
         onToggleFavorite: (() -> Void)? = nil
     ) {
-        if let viewModel = viewModel {
-            _viewModel = State(initialValue: viewModel)
-        } else {
-            let repository = MovieRepositoryImpl.shared
-            let detailUseCase = GetMovieDetailsUseCase(repository: repository)
-            let toggleUseCase = ToggleFavoriteMovieUseCase(repository: repository)
-            let checkUseCase = CheckIsFavoriteUseCase(repository: repository)
-            let discoverUseCase = DiscoverMoviesByGenreUseCase(repository: repository)
-            _viewModel = State(
-                initialValue: MovieDetailViewModel(
-                    movieId: movieId,
-                    getMovieDetailsUseCase: detailUseCase,
-                    toggleFavoriteMovieUseCase: toggleUseCase,
-                    checkIsFavoriteUseCase: checkUseCase,
-                    discoverMoviesByGenreUseCase: discoverUseCase
-                )
-            )
-        }
+        _viewModel = State(initialValue: viewModel)
         self.onToggleFavorite = onToggleFavorite
     }
 
@@ -550,9 +532,12 @@ private struct TrailerPresentation: Identifiable {
     var id: String { video.id }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
-        MovieDetailView(movieId: 550)
+        MovieDetailView(viewModel: AppContainer.preview.makeMovieDetailViewModel(movieId: 550))
             .appDestinations()
     }
+    .environment(AppContainer.preview)
 }
+#endif

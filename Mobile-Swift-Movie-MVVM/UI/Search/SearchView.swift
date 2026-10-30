@@ -15,22 +15,10 @@ public struct SearchView: View {
     ]
 
     public init(
-        viewModel: SearchViewModel? = nil,
+        viewModel: SearchViewModel,
         onSelectMovie: ((Movie) -> Void)? = nil
     ) {
-        if let viewModel = viewModel {
-            _viewModel = State(initialValue: viewModel)
-        } else {
-            let repository = MovieRepositoryImpl.shared
-            let searchUseCase = SearchMoviesUseCase(repository: repository)
-            let discoverUseCase = DiscoverMoviesByGenreUseCase(repository: repository)
-            _viewModel = State(
-                initialValue: SearchViewModel(
-                    searchMoviesUseCase: searchUseCase,
-                    discoverMoviesByGenreUseCase: discoverUseCase
-                )
-            )
-        }
+        _viewModel = State(initialValue: viewModel)
         self.onSelectMovie = onSelectMovie
     }
 
@@ -232,6 +220,8 @@ public struct SearchView: View {
     }
 }
 
+#if DEBUG
 #Preview {
-    SearchView()
+    SearchView(viewModel: AppContainer.preview.makeSearchViewModel())
 }
+#endif

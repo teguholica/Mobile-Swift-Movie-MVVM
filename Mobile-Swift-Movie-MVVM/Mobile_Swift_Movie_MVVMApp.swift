@@ -11,26 +11,29 @@ import SwiftData
 @main
 struct Mobile_Swift_Movie_MVVMApp: App {
     @State private var themeManager = ThemeManager()
+    private let container: AppContainer
 
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            FavoriteMovieItem.self
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    init() {
+        let schema = Schema([FavoriteMovieItem.self])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            let modelContainer = try ModelContainer(for: schema, configurations: [configuration])
+            let dataSource = SwiftDataFavoriteDataSource(modelContainer: modelContainer)
+            container = AppContainer(
+                movieRepository: MovieRepositoryImpl(localDataSource: dataSource)
+            )
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
-    }()
+    }
 
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            MainTabView(container: container)
+                .environment(container)
                 .environment(themeManager)
                 .preferredColorScheme(themeManager.colorScheme)
         }
-        .modelContainer(sharedModelContainer)
     }
 }

@@ -10,28 +10,10 @@ public struct HomeView: View {
     public var onSelectMovie: ((Movie) -> Void)?
 
     public init(
-        viewModel: HomeViewModel? = nil,
+        viewModel: HomeViewModel,
         onSelectMovie: ((Movie) -> Void)? = nil
     ) {
-        if let viewModel = viewModel {
-            _viewModel = State(initialValue: viewModel)
-        } else {
-            let repository = MovieRepositoryImpl.shared
-            let nowPlayingUseCase = GetNowPlayingMoviesUseCase(repository: repository)
-            let popularUseCase = GetPopularMoviesUseCase(repository: repository)
-            let topRatedUseCase = GetTopRatedMoviesUseCase(repository: repository)
-            let toggleFavoriteUseCase = ToggleFavoriteMovieUseCase(repository: repository)
-            let getFavoritesUseCase = GetFavoriteMoviesUseCase(repository: repository)
-            _viewModel = State(
-                initialValue: HomeViewModel(
-                    getNowPlayingMoviesUseCase: nowPlayingUseCase,
-                    getPopularMoviesUseCase: popularUseCase,
-                    getTopRatedMoviesUseCase: topRatedUseCase,
-                    toggleFavoriteMovieUseCase: toggleFavoriteUseCase,
-                    getFavoriteMoviesUseCase: getFavoritesUseCase
-                )
-            )
-        }
+        _viewModel = State(initialValue: viewModel)
         self.onSelectMovie = onSelectMovie
     }
 
@@ -169,6 +151,8 @@ public struct HomeView: View {
     }
 }
 
+#if DEBUG
 #Preview {
-    HomeView()
+    HomeView(viewModel: AppContainer.preview.makeHomeViewModel())
 }
+#endif
