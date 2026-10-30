@@ -7,6 +7,7 @@ import SwiftUI
 
 public struct SearchView: View {
     @State private var viewModel: SearchViewModel
+    @State private var isFilterSheetPresented = false
 
     private let columns = [
         GridItem(.flexible(), spacing: 14),
@@ -22,6 +23,10 @@ public struct SearchView: View {
             VStack(spacing: 0) {
                 // Horizontal Genre Chips
                 genreChipsBar
+
+                if viewModel.query.isEmpty, viewModel.filters.yearRange != nil {
+                    filterChipsBar
+                }
 
                 // Content Area
                 Group {
@@ -51,10 +56,89 @@ public struct SearchView: View {
                 text: $viewModel.query,
                 prompt: "Search movies by title..."
             )
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    filterButton
+                }
+            }
+            .sheet(isPresented: $isFilterSheetPresented) {
+                DiscoverFilterSheet(filters: viewModel.currentDiscoverFilters) { draft in
+                    Task {
+                        await viewModel.applyFilters(draft)
+                    }
+                }
+            }
             .task {
                 await viewModel.loadGenres()
             }
         }
+    }
+
+    private var filterButton: some View {
+        Button {
+            isFilterSheetPresented = true
+        } label: {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .overlay(alignment: .topTrailing) {
+                    if viewModel.activeFilterCount > 0 {
+                        Text("\(viewModel.activeFilterCount)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.black)
+                            .frame(minWidth: 15, minHeight: 15)
+                            .background(CinemaTokens.Colors.gold)
+                            .clipShape(Circle())
+                            .offset(x: 7, y: -7)
+                    }
+                }
+        }
+        .accessibilityLabel("Filters")
+        .accessibilityValue(
+            viewModel.activeFilterCount == 0
+                ? "No filters"
+                : "\(viewModel.activeFilterCount) filters"
+        )
+    }
+
+    private var filterChipsBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                if let yearRange = viewModel.filters.yearRange {
+                    filterChip(title: "\(yearRange.lowerBound)–\(yearRange.upperBound)") {
+                        Task {
+                            await viewModel.clearYearRange()
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .background(CinemaTokens.Colors.surface.opacity(0.6))
+    }
+
+    private func filterChip(title: String, onRemove: @escaping () -> Void) -> some View {
+        Button(action: onRemove) {
+            HStack(spacing: 6) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(CinemaTokens.Colors.textPrimary)
+
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(CinemaTokens.Colors.textMuted)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(CinemaTokens.Colors.elevated)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
+            )
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Remove filter \(title)")
     }
 
     private var genreChipsBar: some View {
@@ -122,6 +206,7 @@ public struct SearchView: View {
                 .padding(.vertical, 16)
             }
         }
+        .id(viewModel.resultsGeneration)
     }
 
     private func moviePosterCard(for movie: Movie) -> some View {

@@ -212,6 +212,80 @@ struct SearchViewModelTests {
         #expect(repository.getGenresCallCount == 1)
     }
 
+    @Test func testApplyFiltersCommitsYearRangeAndRefreshesPageOne() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
+
+        #expect(viewModel.filters.yearRange == 2000...2010)
+        #expect(viewModel.page == 1)
+        #expect(repository.requestedDiscoverFilters?.yearRange == 2000...2010)
+        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
+        #expect(repository.requestedDiscoverPage == 1)
+    }
+
+    @Test func testActiveFilterCountReflectsYearRange() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+
+        #expect(viewModel.activeFilterCount == 0)
+
+        await viewModel.applyFilters(DiscoverFilters(yearRange: 2000...2010))
+        #expect(viewModel.activeFilterCount == 1)
+
+        await viewModel.clearYearRange()
+        #expect(viewModel.activeFilterCount == 0)
+    }
+
+    @Test func testClearingYearRangeRefetchesWithoutRange() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
+        await viewModel.clearYearRange()
+
+        #expect(viewModel.filters.yearRange == nil)
+        #expect(repository.requestedDiscoverFilters?.yearRange == nil)
+        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
+    }
+
+    @Test func testPaginationKeepsCommittedYearRange() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "Action 1")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        repository.discoverResult = .success([makeMovie(id: 11, title: "Action 2")])
+        await viewModel.loadMore()
+        #expect(viewModel.page == 2)
+
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
+        #expect(viewModel.page == 1)
+
+        repository.discoverResult = .success([makeMovie(id: 12, title: "Action 3")])
+        await viewModel.loadMore()
+
+        #expect(viewModel.page == 2)
+        #expect(repository.requestedDiscoverFilters?.yearRange == 2000...2010)
+        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
+    }
+
+    @Test func testFilterOnlyPaginationUsesDiscover() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 1, title: "First")])
+
+        await viewModel.applyFilters(DiscoverFilters(yearRange: 2000...2010))
+
+        repository.discoverResult = .success([makeMovie(id: 2, title: "Second")])
+        await viewModel.loadMore()
+
+        #expect(viewModel.page == 2)
+        #expect(repository.requestedDiscoverPage == 2)
+        #expect(repository.requestedDiscoverFilters?.yearRange == 2000...2010)
+    }
+
     @Test func testRapidGenreTogglesCoalesceIntoOneRequest() async {
         let (viewModel, repository) = makeSUT(debounce: .milliseconds(500))
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])

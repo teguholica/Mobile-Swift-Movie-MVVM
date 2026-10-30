@@ -24,11 +24,13 @@ public final class SearchViewModel {
 
     public var genres: [Genre] = Genre.popularPresets
     public var selectedGenres: [Genre] = []
+    public private(set) var filters = DiscoverFilters()
     public var state: State = .initial
     public var movies: [Movie] = []
     public var page: Int = 1
     public var isLoadingMore: Bool = false
     public var canLoadMore: Bool = true
+    public private(set) var resultsGeneration = 0
 
     private let searchMoviesUseCase: SearchMoviesUseCaseProtocol
     private let discoverMoviesUseCase: DiscoverMoviesUseCaseProtocol?
@@ -72,7 +74,35 @@ public final class SearchViewModel {
     }
 
     public var currentDiscoverFilters: DiscoverFilters {
-        DiscoverFilters(genreIds: selectedGenres.map(\.id))
+        DiscoverFilters(
+            genreIds: selectedGenres.map(\.id),
+            yearRange: filters.yearRange,
+            minRating: filters.minRating,
+            sort: filters.sort,
+            searchYear: filters.searchYear
+        )
+    }
+
+    public var activeFilterCount: Int {
+        if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return filters.searchYear == nil ? 0 : 1
+        }
+
+        var count = 0
+        if filters.yearRange != nil { count += 1 }
+        if filters.minRating != nil { count += 1 }
+        if filters.sort != .popularity { count += 1 }
+        return count
+    }
+
+    private var hasActiveDiscoverFilters: Bool {
+        filters.yearRange != nil || filters.minRating != nil || filters.sort != .popularity
+    }
+
+    private var isDiscoverRequest: Bool {
+        if !selectedGenres.isEmpty { return true }
+        guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return hasActiveDiscoverFilters
     }
 
     public func isSelected(_ genre: Genre) -> Bool {
@@ -103,6 +133,7 @@ public final class SearchViewModel {
 
         // Active text search clears the genre selection
         selectedGenres = []
+        filters = currentDiscoverFilters
         genreFetchTask?.cancel()
         discoverGeneration += 1
 
@@ -118,6 +149,7 @@ public final class SearchViewModel {
                 self.movies = results
                 self.page = 1
                 self.canLoadMore = !results.isEmpty
+                self.resultsGeneration += 1
 
                 if results.isEmpty {
                     self.state = .empty
@@ -144,6 +176,7 @@ public final class SearchViewModel {
             }
             selectedGenres.append(genre)
         }
+        filters = currentDiscoverFilters
 
         guard !selectedGenres.isEmpty else {
             movies = []
@@ -190,6 +223,7 @@ public final class SearchViewModel {
             self.movies = results
             self.page = 1
             self.canLoadMore = !results.isEmpty
+            self.resultsGeneration += 1
             self.state = results.isEmpty ? .empty : .loaded
         } catch {
             guard generation == discoverGeneration else { return }
@@ -209,8 +243,40 @@ public final class SearchViewModel {
     }
 
     @MainActor
+    public func applyFilters(_ draft: DiscoverFilters) async {
+        filters = DiscoverFilters(
+            genreIds: selectedGenres.map(\.id),
+            yearRange: draft.yearRange,
+            minRating: draft.minRating,
+            sort: draft.sort,
+            searchYear: draft.searchYear
+        )
+
+        let request = currentDiscoverFilters
+        guard !selectedGenres.isEmpty || request != DiscoverFilters() else {
+            movies = []
+            state = .initial
+            page = 1
+            canLoadMore = true
+            return
+        }
+
+        genreFetchTask?.cancel()
+        searchTask?.cancel()
+        discoverGeneration += 1
+        let generation = discoverGeneration
+        state = .loading
+        await executeDiscover(filters: request, generation: generation, debounce: .zero)
+    }
+
+    @MainActor
+    public func clearYearRange() async {
+        await applyFilters(filters.withYearRange(nil))
+    }
+
+    @MainActor
     public func refreshResults() async {
-        if !selectedGenres.isEmpty {
+        if isDiscoverRequest {
             discoverGeneration += 1
             await executeDiscover(
                 filters: currentDiscoverFilters,
@@ -232,7 +298,7 @@ public final class SearchViewModel {
 
         do {
             let nextResults: [Movie]
-            if !selectedGenres.isEmpty, let discoverMoviesUseCase {
+            if isDiscoverRequest, let discoverMoviesUseCase {
                 nextResults = try await discoverMoviesUseCase.execute(
                     filters: currentDiscoverFilters,
                     page: nextPage
@@ -270,6 +336,7 @@ public final class SearchViewModel {
     public func executeSearchImmediate(query: String) async {
         self.query = query
         self.selectedGenres = []
+        filters = currentDiscoverFilters
         searchTask?.cancel()
         genreFetchTask?.cancel()
         discoverGeneration += 1
@@ -287,6 +354,7 @@ public final class SearchViewModel {
             self.movies = results
             self.page = 1
             self.canLoadMore = !results.isEmpty
+            self.resultsGeneration += 1
             self.state = results.isEmpty ? .empty : .loaded
         } catch {
             self.state = .error(error.localizedDescription)
