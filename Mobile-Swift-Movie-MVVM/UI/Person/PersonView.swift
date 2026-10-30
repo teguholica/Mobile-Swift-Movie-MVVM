@@ -14,23 +14,11 @@ public struct PersonView: View {
     private let fallbackProfilePath: String?
 
     public init(
-        personId: Int,
         name: String,
         profilePath: String? = nil,
-        viewModel: PersonViewModel? = nil
+        viewModel: PersonViewModel
     ) {
-        if let viewModel {
-            _viewModel = State(initialValue: viewModel)
-        } else {
-            let repository = MovieRepositoryImpl.shared
-            let useCase = GetPersonProfileUseCase(repository: repository)
-            _viewModel = State(
-                initialValue: PersonViewModel(
-                    personId: personId,
-                    getPersonProfileUseCase: useCase
-                )
-            )
-        }
+        _viewModel = State(initialValue: viewModel)
         self.fallbackName = name
         self.fallbackProfilePath = profilePath
     }

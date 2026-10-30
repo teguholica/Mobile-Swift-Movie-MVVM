@@ -7,6 +7,9 @@ import SwiftUI
 
 public struct MainTabView: View {
     @State private var selectedTab: Tab = .home
+    @State private var homeViewModel: HomeViewModel
+    @State private var searchViewModel: SearchViewModel
+    @State private var favoritesViewModel: FavoritesViewModel
 
     public enum Tab: Hashable {
         case home
@@ -15,23 +18,27 @@ public struct MainTabView: View {
         case settings
     }
 
-    public init() {}
+    public init(container: AppContainer) {
+        _homeViewModel = State(initialValue: container.makeHomeViewModel())
+        _searchViewModel = State(initialValue: container.makeSearchViewModel())
+        _favoritesViewModel = State(initialValue: container.makeFavoritesViewModel())
+    }
 
     public var body: some View {
         TabView(selection: $selectedTab) {
-            HomeView()
+            HomeView(viewModel: homeViewModel)
                 .tabItem {
                     Label("Home", systemImage: "film.stack")
                 }
                 .tag(Tab.home)
 
-            SearchView()
+            SearchView(viewModel: searchViewModel)
                 .tabItem {
                     Label("Search", systemImage: "magnifyingglass")
                 }
                 .tag(Tab.search)
 
-            FavoritesView()
+            FavoritesView(viewModel: favoritesViewModel)
                 .tabItem {
                     Label("Favorites", systemImage: "bookmark.fill")
                 }
@@ -46,7 +53,10 @@ public struct MainTabView: View {
     }
 }
 
+#if DEBUG
 #Preview {
-    MainTabView()
+    MainTabView(container: AppContainer.preview)
+        .environment(AppContainer.preview)
         .environment(ThemeManager())
 }
+#endif

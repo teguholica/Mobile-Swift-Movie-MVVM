@@ -19,20 +19,8 @@ public struct FavoritesView: View {
         GridItem(.flexible(), spacing: 14)
     ]
 
-    public init(viewModel: FavoritesViewModel? = nil) {
-        if let viewModel = viewModel {
-            _viewModel = State(initialValue: viewModel)
-        } else {
-            let repository = MovieRepositoryImpl.shared
-            let getUseCase = GetFavoriteMoviesUseCase(repository: repository)
-            let removeUseCase = RemoveFavoriteMovieUseCase(repository: repository)
-            _viewModel = State(
-                initialValue: FavoritesViewModel(
-                    getFavoriteMoviesUseCase: getUseCase,
-                    removeFavoriteMovieUseCase: removeUseCase
-                )
-            )
-        }
+    public init(viewModel: FavoritesViewModel) {
+        _viewModel = State(initialValue: viewModel)
     }
 
     public var body: some View {
@@ -249,6 +237,8 @@ public struct FavoritesView: View {
     }
 }
 
+#if DEBUG
 #Preview {
-    FavoritesView()
+    FavoritesView(viewModel: AppContainer.preview.makeFavoritesViewModel())
 }
+#endif

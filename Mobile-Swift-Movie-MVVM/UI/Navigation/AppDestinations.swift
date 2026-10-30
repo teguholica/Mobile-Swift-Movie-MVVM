@@ -6,6 +6,7 @@
 import SwiftUI
 
 public struct AppDestinations: ViewModifier {
+    @Environment(AppContainer.self) private var container
     private let onFavoriteChanged: (() -> Void)?
 
     public init(onFavoriteChanged: (() -> Void)? = nil) {
@@ -16,9 +17,16 @@ public struct AppDestinations: ViewModifier {
         content.navigationDestination(for: AppRoute.self) { route in
             switch route {
             case .movie(let id):
-                MovieDetailView(movieId: id, onToggleFavorite: onFavoriteChanged)
+                MovieDetailView(
+                    viewModel: container.makeMovieDetailViewModel(movieId: id),
+                    onToggleFavorite: onFavoriteChanged
+                )
             case .person(let id, let name, let profilePath):
-                PersonView(personId: id, name: name, profilePath: profilePath)
+                PersonView(
+                    name: name,
+                    profilePath: profilePath,
+                    viewModel: container.makePersonViewModel(personId: id)
+                )
             }
         }
     }

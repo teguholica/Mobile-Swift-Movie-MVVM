@@ -20,16 +20,6 @@ public actor SwiftDataFavoriteDataSource: SwiftDataFavoriteDataSourceProtocol {
         self.modelContainer = modelContainer
     }
 
-    public static func createDefault() -> SwiftDataFavoriteDataSource {
-        let schema = Schema([FavoriteMovieItem.self])
-        do {
-            let container = try ModelContainer(for: schema)
-            return SwiftDataFavoriteDataSource(modelContainer: container)
-        } catch {
-            fatalError("Failed to initialize SwiftData ModelContainer: \(error)")
-        }
-    }
-
     public static func createInMemory() -> SwiftDataFavoriteDataSource {
         let schema = Schema([FavoriteMovieItem.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
