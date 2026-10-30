@@ -56,7 +56,7 @@ final class PreviewMovieRepository: MovieRepositoryProtocol, @unchecked Sendable
         movies
     }
 
-    func discoverMovies(genreId: Int, page: Int) async throws -> [Movie] {
+    func discoverMovies(filters: DiscoverFilters, page: Int) async throws -> [Movie] {
         movies
     }
 

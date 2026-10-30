@@ -30,17 +30,17 @@ public final class SearchViewModel {
     public var canLoadMore: Bool = true
 
     private let searchMoviesUseCase: SearchMoviesUseCaseProtocol
-    private let discoverMoviesByGenreUseCase: DiscoverMoviesByGenreUseCaseProtocol?
+    private let discoverMoviesUseCase: DiscoverMoviesUseCaseProtocol?
     private let debounceDuration: Duration
     private var searchTask: Task<Void, Never>?
 
     public init(
         searchMoviesUseCase: SearchMoviesUseCaseProtocol,
-        discoverMoviesByGenreUseCase: DiscoverMoviesByGenreUseCaseProtocol? = nil,
+        discoverMoviesUseCase: DiscoverMoviesUseCaseProtocol? = nil,
         debounceDuration: Duration = .milliseconds(500)
     ) {
         self.searchMoviesUseCase = searchMoviesUseCase
-        self.discoverMoviesByGenreUseCase = discoverMoviesByGenreUseCase
+        self.discoverMoviesUseCase = discoverMoviesUseCase
         self.debounceDuration = debounceDuration
     }
 
@@ -135,14 +135,17 @@ public final class SearchViewModel {
 
     @MainActor
     private func fetchGenreDiscovery(genre: Genre) async {
-        guard let discoverMoviesByGenreUseCase else {
+        guard let discoverMoviesUseCase else {
             state = .empty
             return
         }
 
         state = .loading
         do {
-            let results = try await discoverMoviesByGenreUseCase.execute(genreId: genre.id, page: 1)
+            let results = try await discoverMoviesUseCase.execute(
+                filters: DiscoverFilters(genreIds: [genre.id]),
+                page: 1
+            )
             self.movies = results
             self.page = 1
             self.canLoadMore = !results.isEmpty
@@ -161,8 +164,11 @@ public final class SearchViewModel {
 
         do {
             let nextResults: [Movie]
-            if let selectedGenre, let discoverMoviesByGenreUseCase {
-                nextResults = try await discoverMoviesByGenreUseCase.execute(genreId: selectedGenre.id, page: nextPage)
+            if let selectedGenre, let discoverMoviesUseCase {
+                nextResults = try await discoverMoviesUseCase.execute(
+                    filters: DiscoverFilters(genreIds: [selectedGenre.id]),
+                    page: nextPage
+                )
             } else {
                 let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else {

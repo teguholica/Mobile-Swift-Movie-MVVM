@@ -14,10 +14,10 @@ struct SearchViewModelTests {
         debounce: Duration = .zero
     ) -> (SearchViewModel, MockMovieRepository) {
         let useCase = SearchMoviesUseCase(repository: repository)
-        let discoverUseCase = DiscoverMoviesByGenreUseCase(repository: repository)
+        let discoverUseCase = DiscoverMoviesUseCase(repository: repository)
         let viewModel = SearchViewModel(
             searchMoviesUseCase: useCase,
-            discoverMoviesByGenreUseCase: discoverUseCase,
+            discoverMoviesUseCase: discoverUseCase,
             debounceDuration: debounce
         )
         return (viewModel, repository)
@@ -122,7 +122,8 @@ struct SearchViewModelTests {
         #expect(viewModel.state == .loaded)
         #expect(viewModel.movies.count == 1)
         #expect(viewModel.movies.first?.title == "John Wick")
-        #expect(repository.requestedDiscoverGenreId == 28)
+        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
+        #expect(repository.requestedDiscoverFilters?.sort == .popularity)
     }
 
     @Test func testSelectSameGenreTogglesSelectionOffAndResetsState() async {
@@ -156,5 +157,6 @@ struct SearchViewModelTests {
         #expect(viewModel.movies.count == 2)
         #expect(viewModel.page == 2)
         #expect(repository.requestedDiscoverPage == 2)
+        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
     }
 }

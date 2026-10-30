@@ -60,8 +60,8 @@ public final class MovieRepositoryImpl: MovieRepositoryProtocol {
         return response.results.map { $0.toDomain() }
     }
 
-    public func discoverMovies(genreId: Int, page: Int = 1) async throws -> [Movie] {
-        let response: MovieResponseDTO = try await networkService.request(.discover(genreId: genreId, page: page))
+    public func discoverMovies(filters: DiscoverFilters, page: Int) async throws -> [Movie] {
+        let response: MovieResponseDTO = try await networkService.request(.discover(filters: filters, page: page))
         return response.results.map { $0.toDomain() }
     }
 

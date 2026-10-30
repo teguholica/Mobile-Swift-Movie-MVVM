@@ -18,7 +18,7 @@ final class MockMovieRepository: MovieRepositoryProtocol, @unchecked Sendable {
     var personProfileResult: Result<PersonProfile, Error> = .failure(URLError(.badURL))
     var getPersonProfileCallCount = 0
     var requestedPersonProfileId: Int?
-    var requestedDiscoverGenreId: Int?
+    var requestedDiscoverFilters: DiscoverFilters?
     var requestedDiscoverPage: Int?
 
     var favoritesList: [Movie] = []
@@ -30,7 +30,7 @@ final class MockMovieRepository: MovieRepositoryProtocol, @unchecked Sendable {
     var getPopularCallCount = 0
     var requestedPopularPages: [Int] = []
     var popularResultProvider: ((Int) -> Result<[Movie], Error>)?
-    var discoverResultProvider: ((Int) -> Result<[Movie], Error>)?
+    var discoverResultProvider: ((DiscoverFilters) -> Result<[Movie], Error>)?
 
     func getNowPlayingMovies(page: Int) async throws -> [Movie] {
         getNowPlayingCallCount += 1
@@ -55,11 +55,11 @@ final class MockMovieRepository: MovieRepositoryProtocol, @unchecked Sendable {
         return try searchResult.get()
     }
 
-    func discoverMovies(genreId: Int, page: Int) async throws -> [Movie] {
-        requestedDiscoverGenreId = genreId
+    func discoverMovies(filters: DiscoverFilters, page: Int) async throws -> [Movie] {
+        requestedDiscoverFilters = filters
         requestedDiscoverPage = page
         if let provider = discoverResultProvider {
-            return try provider(genreId).get()
+            return try provider(filters).get()
         }
         return try discoverResult.get()
     }
