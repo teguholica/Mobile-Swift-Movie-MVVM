@@ -22,6 +22,7 @@ public final class SearchViewModel {
         }
     }
 
+    public var genres: [Genre] = Genre.popularPresets
     public var selectedGenres: [Genre] = []
     public var state: State = .initial
     public var movies: [Movie] = []
@@ -31,19 +32,43 @@ public final class SearchViewModel {
 
     private let searchMoviesUseCase: SearchMoviesUseCaseProtocol
     private let discoverMoviesUseCase: DiscoverMoviesUseCaseProtocol?
+    private let getGenresUseCase: GetGenresUseCaseProtocol
     private let debounceDuration: Duration
     private var searchTask: Task<Void, Never>?
     private var genreFetchTask: Task<Void, Never>?
     private var discoverGeneration = 0
+    private var hasRequestedGenres = false
 
     public init(
         searchMoviesUseCase: SearchMoviesUseCaseProtocol,
         discoverMoviesUseCase: DiscoverMoviesUseCaseProtocol? = nil,
+        getGenresUseCase: GetGenresUseCaseProtocol,
         debounceDuration: Duration = .milliseconds(500)
     ) {
         self.searchMoviesUseCase = searchMoviesUseCase
         self.discoverMoviesUseCase = discoverMoviesUseCase
+        self.getGenresUseCase = getGenresUseCase
         self.debounceDuration = debounceDuration
+    }
+
+    @MainActor
+    public func loadGenres() async {
+        guard !hasRequestedGenres else { return }
+        hasRequestedGenres = true
+
+        do {
+            let catalogue = try await getGenresUseCase.execute()
+            guard !catalogue.isEmpty else { return }
+
+            genres = catalogue
+            selectedGenres = selectedGenres.map { selected in
+                catalogue.first(where: { $0.id == selected.id }) ?? selected
+            }
+        } catch {
+            if Task.isCancelled {
+                hasRequestedGenres = false
+            }
+        }
     }
 
     public var currentDiscoverFilters: DiscoverFilters {

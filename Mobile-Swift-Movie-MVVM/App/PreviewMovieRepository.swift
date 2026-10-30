@@ -60,6 +60,10 @@ final class PreviewMovieRepository: MovieRepositoryProtocol, @unchecked Sendable
         movies
     }
 
+    func getGenres() async throws -> [Genre] {
+        Genre.popularPresets
+    }
+
     func getMovieDetails(id: Int) async throws -> MovieDetail {
         MovieDetail(
             id: id,

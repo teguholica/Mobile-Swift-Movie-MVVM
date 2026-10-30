@@ -12,7 +12,12 @@ private final class DiscoverRecordingNetworkService: TMDBNetworkServiceProtocol,
 
     func request<T: Decodable>(_ endpoint: TMDBEndpoint) async throws -> T {
         requestedEndpoints.append(endpoint)
-        let payload = #"{"page":1,"results":[],"total_pages":1,"total_results":0}"#
+        let payload: String
+        if endpoint.path == "/genre/movie/list" {
+            payload = #"{"genres":[{"id":28,"name":"Action"},{"id":37,"name":"Western"}]}"#
+        } else {
+            payload = #"{"page":1,"results":[],"total_pages":1,"total_results":0}"#
+        }
         return try JSONDecoder().decode(T.self, from: Data(payload.utf8))
     }
 }
@@ -116,6 +121,15 @@ struct MovieRepositoryDiscoverTests {
         #expect(query.first(where: { $0.name == "sort_by" })?.value == "vote_average.desc")
         #expect(query.first(where: { $0.name == "vote_count.gte" })?.value == "50")
         #expect(query.first(where: { $0.name == "vote_average.gte" }) == nil)
+    }
+
+    @Test func testGetGenresMapsCatalogueIntoDomainGenres() async throws {
+        let (repository, network) = makeSUT()
+
+        let genres = try await repository.getGenres()
+
+        #expect(genres == [Genre(id: 28, name: "Action"), Genre(id: 37, name: "Western")])
+        #expect(network.requestedEndpoints.first?.path == "/genre/movie/list")
     }
 
     @Test func testDiscoverMapsEverySortOption() async throws {

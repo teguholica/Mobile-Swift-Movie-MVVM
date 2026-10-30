@@ -11,6 +11,7 @@ public enum TMDBEndpoint {
     case topRated(page: Int)
     case search(query: String, page: Int)
     case discover(filters: DiscoverFilters, page: Int)
+    case genres
     case detail(id: Int)
     case person(id: Int)
 
@@ -26,6 +27,8 @@ public enum TMDBEndpoint {
             return "/search/movie"
         case .discover:
             return "/discover/movie"
+        case .genres:
+            return "/genre/movie/list"
         case .detail(let id):
             return "/movie/\(id)"
         case .person(let id):
@@ -67,6 +70,8 @@ public enum TMDBEndpoint {
             }
 
             return items
+        case .genres:
+            return []
         case .detail:
             return [
                 URLQueryItem(name: "append_to_response", value: "videos,credits,watch/providers,recommendations,similar")

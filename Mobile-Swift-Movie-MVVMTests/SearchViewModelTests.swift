@@ -15,9 +15,11 @@ struct SearchViewModelTests {
     ) -> (SearchViewModel, MockMovieRepository) {
         let useCase = SearchMoviesUseCase(repository: repository)
         let discoverUseCase = DiscoverMoviesUseCase(repository: repository)
+        let getGenresUseCase = GetGenresUseCase(repository: repository)
         let viewModel = SearchViewModel(
             searchMoviesUseCase: useCase,
             discoverMoviesUseCase: discoverUseCase,
+            getGenresUseCase: getGenresUseCase,
             debounceDuration: debounce
         )
         return (viewModel, repository)
@@ -149,6 +151,65 @@ struct SearchViewModelTests {
 
         #expect(viewModel.selectedGenres.map(\.id) == [28, 35])
         #expect(repository.requestedDiscoverFilters?.genreIds == [28, 35])
+    }
+
+    @Test func testGenresStartFromPresets() {
+        let (viewModel, _) = makeSUT()
+
+        #expect(viewModel.genres == Genre.popularPresets)
+    }
+
+    @Test func testLoadGenresReplacesPresets() async {
+        let (viewModel, repository) = makeSUT()
+        repository.genresResult = .success([
+            Genre(id: 28, name: "Action"),
+            Genre(id: 37, name: "Western")
+        ])
+
+        await viewModel.loadGenres()
+
+        #expect(viewModel.genres.map(\.name) == ["Action", "Western"])
+    }
+
+    @Test func testLoadGenresPreservesSelectedGenreByID() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+        let preset = Genre(id: 878, name: "Sci-Fi")
+        await viewModel.toggleGenre(preset)
+
+        repository.genresResult = .success([
+            Genre(id: 878, name: "Science Fiction"),
+            Genre(id: 37, name: "Western")
+        ])
+        await viewModel.loadGenres()
+
+        #expect(viewModel.isSelected(preset))
+        #expect(viewModel.selectedGenres.first?.name == "Science Fiction")
+        #expect(viewModel.genres.map(\.id) == [878, 37])
+    }
+
+    @Test func testLoadGenresRequestsCatalogueOnce() async {
+        let (viewModel, repository) = makeSUT()
+        repository.genresResult = .success([Genre(id: 28, name: "Action")])
+
+        await viewModel.loadGenres()
+        await viewModel.loadGenres()
+
+        #expect(repository.getGenresCallCount == 1)
+    }
+
+    @Test func testLoadGenresFailureKeepsPresetsAndState() async {
+        struct CatalogueFailure: Error {}
+
+        let (viewModel, repository) = makeSUT()
+        repository.genresResult = .failure(CatalogueFailure())
+
+        await viewModel.loadGenres()
+        await viewModel.loadGenres()
+
+        #expect(viewModel.genres == Genre.popularPresets)
+        #expect(viewModel.state == .initial)
+        #expect(repository.getGenresCallCount == 1)
     }
 
     @Test func testRapidGenreTogglesCoalesceIntoOneRequest() async {

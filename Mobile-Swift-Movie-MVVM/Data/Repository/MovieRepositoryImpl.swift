@@ -65,6 +65,11 @@ public final class MovieRepositoryImpl: MovieRepositoryProtocol {
         return response.results.map { $0.toDomain() }
     }
 
+    public func getGenres() async throws -> [Genre] {
+        let response: GenreListDTO = try await networkService.request(.genres)
+        return response.genres.map { $0.toDomain() }
+    }
+
     public func getMovieDetails(id: Int) async throws -> MovieDetail {
         let region = regionCodeProvider()
         let cacheKey = "\(id)-\(region)" as NSString
