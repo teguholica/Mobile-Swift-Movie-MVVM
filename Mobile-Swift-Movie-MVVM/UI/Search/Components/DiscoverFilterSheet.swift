@@ -33,6 +33,12 @@ struct DiscoverFilterSheet: View {
                 } header: {
                     Text("Release year")
                 }
+
+                Section {
+                    ratingPicker
+                } header: {
+                    Text("Minimum rating")
+                }
             }
             .navigationTitle("Filters")
             .navigationBarTitleDisplayMode(.inline)
@@ -60,12 +66,12 @@ struct DiscoverFilterSheet: View {
             Spacer()
             Menu {
                 Button("Any") {
-                    draft = draft.withYearRange(nil)
+                    draft.yearRange = nil
                 }
                 ForEach(fromYears, id: \.self) { year in
                     Button(String(year)) {
                         let upper = max(year, min(draft.yearRange?.upperBound ?? currentYear, currentYear))
-                        draft = draft.withYearRange(year...upper)
+                        draft.yearRange = year...upper
                     }
                 }
             } label: {
@@ -73,6 +79,17 @@ struct DiscoverFilterSheet: View {
             }
             .accessibilityLabel("From year")
         }
+    }
+
+    private var ratingPicker: some View {
+        Picker("Minimum rating", selection: $draft.minRating) {
+            Text("Any").tag(Double?.none)
+            ForEach([6.0, 7.0, 8.0, 9.0], id: \.self) { rating in
+                Text("\(Int(rating))+").tag(Double?.some(rating))
+            }
+        }
+        .pickerStyle(.segmented)
+        .accessibilityLabel("Minimum rating")
     }
 
     private var toYearLabel: String {
@@ -87,11 +104,11 @@ struct DiscoverFilterSheet: View {
             Menu {
                 if let lower = draft.yearRange?.lowerBound {
                     Button("Any") {
-                        draft = draft.withYearRange(lower...currentYear)
+                        draft.yearRange = lower...currentYear
                     }
                     ForEach(Array((lower...currentYear).reversed()), id: \.self) { year in
                         Button(String(year)) {
-                            draft = draft.withYearRange(lower...year)
+                            draft.yearRange = lower...year
                         }
                     }
                 }

@@ -13,11 +13,11 @@ public enum DiscoverSort: CaseIterable, Equatable, Sendable {
 }
 
 public struct DiscoverFilters: Equatable, Sendable {
-    public let genreIds: [Int]
-    public let yearRange: ClosedRange<Int>?
-    public let minRating: Double?
-    public let sort: DiscoverSort
-    public let searchYear: Int?
+    public var genreIds: [Int]
+    public var yearRange: ClosedRange<Int>?
+    public var minRating: Double?
+    public var sort: DiscoverSort
+    public var searchYear: Int?
 
     public init(
         genreIds: [Int] = [],
@@ -31,15 +31,5 @@ public struct DiscoverFilters: Equatable, Sendable {
         self.minRating = minRating
         self.sort = sort
         self.searchYear = searchYear
-    }
-
-    public func withYearRange(_ yearRange: ClosedRange<Int>?) -> DiscoverFilters {
-        DiscoverFilters(
-            genreIds: genreIds,
-            yearRange: yearRange,
-            minRating: minRating,
-            sort: sort,
-            searchYear: searchYear
-        )
     }
 }

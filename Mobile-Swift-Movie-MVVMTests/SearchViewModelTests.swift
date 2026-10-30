@@ -272,6 +272,48 @@ struct SearchViewModelTests {
         #expect(repository.requestedDiscoverFilters?.genreIds == [28])
     }
 
+    @Test func testApplyFiltersCommitsMinimumRating() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], minRating: 7.0))
+
+        #expect(viewModel.filters.minRating == 7.0)
+        #expect(viewModel.activeFilterCount == 1)
+        #expect(repository.requestedDiscoverFilters?.minRating == 7.0)
+        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
+    }
+
+    @Test func testClearingMinimumRatingRefetchesWithoutRating() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], minRating: 7.0))
+        await viewModel.clearMinRating()
+
+        #expect(viewModel.filters.minRating == nil)
+        #expect(viewModel.activeFilterCount == 0)
+        #expect(repository.requestedDiscoverFilters?.minRating == nil)
+        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
+    }
+
+    @Test func testPaginationKeepsMinimumRating() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "Action 1")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], minRating: 7.0))
+
+        repository.discoverResult = .success([makeMovie(id: 11, title: "Action 2")])
+        await viewModel.loadMore()
+
+        #expect(viewModel.page == 2)
+        #expect(repository.requestedDiscoverFilters?.minRating == 7.0)
+        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
+    }
+
     @Test func testFilterOnlyPaginationUsesDiscover() async {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 1, title: "First")])

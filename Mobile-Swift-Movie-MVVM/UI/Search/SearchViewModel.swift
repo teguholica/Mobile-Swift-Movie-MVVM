@@ -95,14 +95,15 @@ public final class SearchViewModel {
         return count
     }
 
-    private var hasActiveDiscoverFilters: Bool {
-        filters.yearRange != nil || filters.minRating != nil || filters.sort != .popularity
+    public var hasVisibleDiscoverFilters: Bool {
+        query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && (filters.yearRange != nil || filters.minRating != nil || filters.sort != .popularity)
     }
 
     private var isDiscoverRequest: Bool {
         if !selectedGenres.isEmpty { return true }
         guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        return hasActiveDiscoverFilters
+        return filters.yearRange != nil || filters.minRating != nil || filters.sort != .popularity
     }
 
     public func isSelected(_ genre: Genre) -> Bool {
@@ -271,7 +272,19 @@ public final class SearchViewModel {
 
     @MainActor
     public func clearYearRange() async {
-        await applyFilters(filters.withYearRange(nil))
+        await clearing { $0.yearRange = nil }
+    }
+
+    @MainActor
+    public func clearMinRating() async {
+        await clearing { $0.minRating = nil }
+    }
+
+    @MainActor
+    private func clearing(_ mutate: (inout DiscoverFilters) -> Void) async {
+        var updated = filters
+        mutate(&updated)
+        await applyFilters(updated)
     }
 
     @MainActor

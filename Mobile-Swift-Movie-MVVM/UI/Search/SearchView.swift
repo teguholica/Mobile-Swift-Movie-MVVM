@@ -24,7 +24,7 @@ public struct SearchView: View {
                 // Horizontal Genre Chips
                 genreChipsBar
 
-                if viewModel.query.isEmpty, viewModel.filters.yearRange != nil {
+                if viewModel.hasVisibleDiscoverFilters {
                     filterChipsBar
                 }
 
@@ -109,6 +109,17 @@ public struct SearchView: View {
                         }
                     }
                 }
+
+                if let minRating = viewModel.filters.minRating {
+                    filterChip(
+                        title: "★ \(Int(minRating))+",
+                        accessibilityTitle: "minimum rating \(Int(minRating))+"
+                    ) {
+                        Task {
+                            await viewModel.clearMinRating()
+                        }
+                    }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
@@ -116,7 +127,11 @@ public struct SearchView: View {
         .background(CinemaTokens.Colors.surface.opacity(0.6))
     }
 
-    private func filterChip(title: String, onRemove: @escaping () -> Void) -> some View {
+    private func filterChip(
+        title: String,
+        accessibilityTitle: String? = nil,
+        onRemove: @escaping () -> Void
+    ) -> some View {
         Button(action: onRemove) {
             HStack(spacing: 6) {
                 Text(title)
@@ -138,7 +153,7 @@ public struct SearchView: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Remove filter \(title)")
+        .accessibilityLabel("Remove filter \(accessibilityTitle ?? title)")
     }
 
     private var genreChipsBar: some View {
