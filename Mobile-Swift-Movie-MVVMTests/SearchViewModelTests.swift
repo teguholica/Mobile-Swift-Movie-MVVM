@@ -354,6 +354,94 @@ struct SearchViewModelTests {
         #expect(repository.requestedDiscoverFilters?.sort == .title)
     }
 
+    @Test func testApplySearchYearRefetchesTextSearchWithYear() async {
+        let (viewModel, repository) = makeSUT()
+        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
+
+        await viewModel.executeSearchImmediate(query: "Dune")
+        await viewModel.applyFilters(DiscoverFilters(searchYear: 2021))
+
+        #expect(viewModel.filters.searchYear == 2021)
+        #expect(repository.requestedSearchYear == 2021)
+        #expect(viewModel.state == .loaded)
+    }
+
+    @Test func testSearchYearAndDiscoverRangeStayIndependent() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
+
+        await viewModel.executeSearchImmediate(query: "Dune")
+        await viewModel.applyFilters(DiscoverFilters(searchYear: 2021))
+
+        #expect(viewModel.filters.yearRange == 2000...2010)
+        #expect(viewModel.filters.searchYear == 2021)
+        #expect(repository.requestedSearchYear == 2021)
+    }
+
+    @Test func testSwitchingBackToDiscoverPreservesRangeAndSearchYear() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
+        await viewModel.executeSearchImmediate(query: "Dune")
+        await viewModel.applyFilters(DiscoverFilters(searchYear: 2021))
+
+        await viewModel.toggleGenre(Genre(id: 35, name: "Comedy"))
+
+        #expect(viewModel.query.isEmpty)
+        #expect(viewModel.filters.yearRange == 2000...2010)
+        #expect(viewModel.filters.searchYear == 2021)
+        #expect(repository.requestedDiscoverFilters?.yearRange == 2000...2010)
+    }
+
+    @Test func testActiveFilterCountIgnoresDiscoverFiltersInTextMode() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
+        #expect(viewModel.activeFilterCount == 1)
+
+        await viewModel.executeSearchImmediate(query: "Dune")
+        #expect(viewModel.activeFilterCount == 0)
+
+        await viewModel.applyFilters(DiscoverFilters(searchYear: 2021))
+        #expect(viewModel.activeFilterCount == 1)
+    }
+
+    @Test func testClearingSearchYearRefetchesSearchWithoutYear() async {
+        let (viewModel, repository) = makeSUT()
+        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
+
+        await viewModel.executeSearchImmediate(query: "Dune")
+        await viewModel.applyFilters(DiscoverFilters(searchYear: 2021))
+        await viewModel.clearSearchYear()
+
+        #expect(viewModel.filters.searchYear == nil)
+        #expect(repository.requestedSearchYear == nil)
+    }
+
+    @Test func testSearchPaginationKeepsSearchYear() async {
+        let (viewModel, repository) = makeSUT()
+        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
+
+        await viewModel.executeSearchImmediate(query: "Dune")
+        await viewModel.applyFilters(DiscoverFilters(searchYear: 2021))
+
+        repository.searchResult = .success([makeMovie(id: 2, title: "Dune Part Two")])
+        await viewModel.loadMore()
+
+        #expect(viewModel.page == 2)
+        #expect(repository.requestedSearchYear == 2021)
+    }
+
     @Test func testSortOnlyApplyUsesDiscover() async {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])

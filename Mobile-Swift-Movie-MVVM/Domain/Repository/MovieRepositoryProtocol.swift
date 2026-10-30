@@ -9,7 +9,7 @@ public protocol MovieRepositoryProtocol: Sendable {
     func getNowPlayingMovies(page: Int) async throws -> [Movie]
     func getPopularMovies(page: Int) async throws -> [Movie]
     func getTopRatedMovies(page: Int) async throws -> [Movie]
-    func searchMovies(query: String, page: Int) async throws -> [Movie]
+    func searchMovies(query: String, year: Int?, page: Int) async throws -> [Movie]
     func discoverMovies(filters: DiscoverFilters, page: Int) async throws -> [Movie]
     func getGenres() async throws -> [Genre]
     func getMovieDetails(id: Int) async throws -> MovieDetail

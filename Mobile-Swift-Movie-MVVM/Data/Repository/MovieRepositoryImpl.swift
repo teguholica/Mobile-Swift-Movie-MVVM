@@ -55,8 +55,8 @@ public final class MovieRepositoryImpl: MovieRepositoryProtocol {
         return response.results.map { $0.toDomain() }
     }
 
-    public func searchMovies(query: String, page: Int = 1) async throws -> [Movie] {
-        let response: MovieResponseDTO = try await networkService.request(.search(query: query, page: page))
+    public func searchMovies(query: String, year: Int? = nil, page: Int = 1) async throws -> [Movie] {
+        let response: MovieResponseDTO = try await networkService.request(.search(query: query, year: year, page: page))
         return response.results.map { $0.toDomain() }
     }
 

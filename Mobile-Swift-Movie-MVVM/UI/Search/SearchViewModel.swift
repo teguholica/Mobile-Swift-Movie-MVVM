@@ -83,8 +83,12 @@ public final class SearchViewModel {
         )
     }
 
+    public var isTextMode: Bool {
+        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     public var activeFilterCount: Int {
-        if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if isTextMode {
             return filters.searchYear == nil ? 0 : 1
         }
 
@@ -95,15 +99,14 @@ public final class SearchViewModel {
         return count
     }
 
-    public var hasVisibleDiscoverFilters: Bool {
-        query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && (filters.yearRange != nil || filters.minRating != nil || !filters.sort.isDefault)
+    private var hasDiscoverConstraints: Bool {
+        filters.yearRange != nil || filters.minRating != nil || !filters.sort.isDefault
     }
 
     private var isDiscoverRequest: Bool {
         if !selectedGenres.isEmpty { return true }
-        guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        return filters.yearRange != nil || filters.minRating != nil || !filters.sort.isDefault
+        guard !isTextMode else { return false }
+        return hasDiscoverConstraints
     }
 
     public func isSelected(_ genre: Genre) -> Bool {
@@ -144,7 +147,11 @@ public final class SearchViewModel {
 
             state = .loading
             do {
-                let results = try await searchMoviesUseCase.execute(query: trimmed, page: 1)
+                let results = try await searchMoviesUseCase.execute(
+                    query: trimmed,
+                    year: filters.searchYear,
+                    page: 1
+                )
                 guard !Task.isCancelled else { return }
 
                 self.movies = results
@@ -245,6 +252,12 @@ public final class SearchViewModel {
 
     @MainActor
     public func applyFilters(_ draft: DiscoverFilters) async {
+        if isTextMode {
+            filters.searchYear = draft.searchYear
+            await executeSearchImmediate(query: query)
+            return
+        }
+
         filters = DiscoverFilters(
             genreIds: selectedGenres.map(\.id),
             yearRange: draft.yearRange,
@@ -254,7 +267,7 @@ public final class SearchViewModel {
         )
 
         let request = currentDiscoverFilters
-        guard !selectedGenres.isEmpty || request != DiscoverFilters() else {
+        guard !selectedGenres.isEmpty || hasDiscoverConstraints else {
             movies = []
             state = .initial
             page = 1
@@ -283,6 +296,11 @@ public final class SearchViewModel {
     @MainActor
     public func clearSort() async {
         await clearing { $0.sort = .popularity }
+    }
+
+    @MainActor
+    public func clearSearchYear() async {
+        await clearing { $0.searchYear = nil }
     }
 
     @MainActor
@@ -327,7 +345,11 @@ public final class SearchViewModel {
                     isLoadingMore = false
                     return
                 }
-                nextResults = try await searchMoviesUseCase.execute(query: trimmed, page: nextPage)
+                nextResults = try await searchMoviesUseCase.execute(
+                    query: trimmed,
+                    year: filters.searchYear,
+                    page: nextPage
+                )
             }
 
             guard requestGeneration == discoverGeneration else {
@@ -368,7 +390,11 @@ public final class SearchViewModel {
 
         state = .loading
         do {
-            let results = try await searchMoviesUseCase.execute(query: trimmed, page: 1)
+            let results = try await searchMoviesUseCase.execute(
+                query: trimmed,
+                year: filters.searchYear,
+                page: 1
+            )
             self.movies = results
             self.page = 1
             self.canLoadMore = !results.isEmpty

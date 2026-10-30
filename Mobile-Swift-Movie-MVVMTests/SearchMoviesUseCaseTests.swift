@@ -25,7 +25,7 @@ struct SearchMoviesUseCaseTests {
         repository.searchResult = .success(sample)
         let useCase = SearchMoviesUseCase(repository: repository)
 
-        let results = try await useCase.execute(query: "Avatar", page: 1)
+        let results = try await useCase.execute(query: "Avatar", year: nil, page: 1)
 
         #expect(results.count == 1)
         #expect(results.first?.title == "Avatar")
@@ -35,10 +35,20 @@ struct SearchMoviesUseCaseTests {
         let repository = MockMovieRepository()
         let useCase = SearchMoviesUseCase(repository: repository)
 
-        let result1 = try await useCase.execute(query: "", page: 1)
-        let result2 = try await useCase.execute(query: "   ", page: 1)
+        let result1 = try await useCase.execute(query: "", year: nil, page: 1)
+        let result2 = try await useCase.execute(query: "   ", year: nil, page: 1)
 
         #expect(result1.isEmpty)
         #expect(result2.isEmpty)
+    }
+
+    @Test func testSearchForwardsQueryAndYearToRepository() async throws {
+        let repository = MockMovieRepository()
+        let useCase = SearchMoviesUseCase(repository: repository)
+
+        _ = try await useCase.execute(query: "Dune", year: 2021, page: 2)
+
+        #expect(repository.requestedSearchQuery == "Dune")
+        #expect(repository.requestedSearchYear == 2021)
     }
 }
