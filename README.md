@@ -112,7 +112,7 @@ Mobile-Swift-Movie-MVVM/
 │   │   ├── Favorites/              # Favorites screen, list/grid toggle, undo toast
 │   │   ├── Home/                   # Spotlight marquee, Top-rated, Popular rows
 │   │   ├── Person/                 # Person profile, Info/Film tabs, filmography rows
-│   │   ├── Search/                  # Live search, pinned filter bar, category sheet, grid
+│   │   ├── Search/                  # Live search, year picker, filter and category sheets
 │   │   ├── Settings/               # Theme manager, theme cards, version & attribution
 │   │   └── TabBar/                 # Custom cinema tab bar navigation
 │   └── Mobile_Swift_Movie_MVVMApp.swift # Application entry point
