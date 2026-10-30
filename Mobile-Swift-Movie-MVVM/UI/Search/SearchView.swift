@@ -7,12 +7,10 @@ import SwiftUI
 
 public struct SearchView: View {
     @State private var viewModel: SearchViewModel
-    private let selectableYears: [Int]
+    @State private var isYearSheetPresented = false
 
     public init(viewModel: SearchViewModel) {
         _viewModel = State(initialValue: viewModel)
-        let currentYear = Calendar.current.component(.year, from: Date())
-        selectableYears = Array((1950...currentYear).reversed())
     }
 
     public var body: some View {
@@ -47,38 +45,46 @@ public struct SearchView: View {
                 text: $viewModel.query,
                 prompt: "Search movies by title..."
             )
+            .sheet(isPresented: $isYearSheetPresented) {
+                SearchYearSheet(selectedYear: viewModel.selectedYear) { year in
+                    Task {
+                        await viewModel.applyYear(year)
+                    }
+                }
+            }
         }
     }
 
     private var yearBar: some View {
         HStack {
-            HStack(spacing: 6) {
-                Image(systemName: "calendar")
-                    .font(.system(size: 12, weight: .semibold))
+            Button {
+                isYearSheetPresented = true
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 12, weight: .semibold))
 
-                Text("Year")
-                    .font(.caption.weight(.semibold))
+                    Text(yearLabel)
+                        .font(.caption.weight(.semibold))
 
-                Picker("", selection: yearSelection) {
-                    Text("Any").tag(Int?.none)
-                    ForEach(selectableYears, id: \.self) { year in
-                        Text(String(year)).tag(Int?.some(year))
-                    }
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 9, weight: .bold))
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .tint(CinemaTokens.Colors.textPrimary)
+                .foregroundStyle(
+                    viewModel.selectedYear == nil
+                        ? CinemaTokens.Colors.textPrimary
+                        : CinemaTokens.Colors.gold
+                )
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(CinemaTokens.Colors.elevated)
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
+                )
             }
-            .foregroundStyle(CinemaTokens.Colors.textPrimary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(CinemaTokens.Colors.elevated)
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
-            )
-            .accessibilityElement(children: .combine)
+            .buttonStyle(.plain)
             .accessibilityLabel("Release year")
             .accessibilityValue(viewModel.selectedYear.map(String.init) ?? "Any")
 
@@ -88,15 +94,9 @@ public struct SearchView: View {
         .padding(.vertical, 8)
     }
 
-    private var yearSelection: Binding<Int?> {
-        Binding(
-            get: { viewModel.selectedYear },
-            set: { year in
-                Task {
-                    await viewModel.applyYear(year)
-                }
-            }
-        )
+    private var yearLabel: String {
+        guard let selectedYear = viewModel.selectedYear else { return "Year" }
+        return "Year: \(selectedYear)"
     }
 
     private var resultsGrid: some View {

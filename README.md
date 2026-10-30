@@ -34,7 +34,7 @@ A modern, native iOS movie discovery application built with **SwiftUI**, **Clean
 
 ### Search
 - **Live Debounced Search**: Instant movie searching with 500ms debouncing to minimize redundant network requests.
-- **Year Filter**: An optional single-release-year menu that narrows title searches.
+- **Year Filter**: An optional single-release-year wheel picker that narrows title searches.
 - **Poster Grid**: Adaptive two-column responsive grid with integrated rating badges.
 
 ### Discover
