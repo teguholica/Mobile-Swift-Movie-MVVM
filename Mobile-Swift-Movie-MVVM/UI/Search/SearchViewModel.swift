@@ -18,6 +18,7 @@ public final class SearchViewModel {
 
     public var query: String = "" {
         didSet {
+            guard !suppressesQueryHandling else { return }
             onQueryChanged(query)
         }
     }
@@ -40,6 +41,7 @@ public final class SearchViewModel {
     private var genreFetchTask: Task<Void, Never>?
     private var discoverGeneration = 0
     private var hasRequestedGenres = false
+    private var suppressesQueryHandling = false
 
     public init(
         searchMoviesUseCase: SearchMoviesUseCaseProtocol,
@@ -99,14 +101,14 @@ public final class SearchViewModel {
         return count
     }
 
-    private var hasDiscoverConstraints: Bool {
-        filters.yearRange != nil || filters.minRating != nil || !filters.sort.isDefault
+    private var hasDiscoveryContext: Bool {
+        !selectedGenres.isEmpty || filters.hasConstraints
     }
 
     private var isDiscoverRequest: Bool {
         if !selectedGenres.isEmpty { return true }
         guard !isTextMode else { return false }
-        return hasDiscoverConstraints
+        return filters.hasConstraints
     }
 
     public func isSelected(_ genre: Genre) -> Bool {
@@ -118,8 +120,8 @@ public final class SearchViewModel {
 
         let trimmed = newQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            if !selectedGenres.isEmpty {
-                // If query cleared but genres are selected, re-fetch discovery
+            if hasDiscoveryContext {
+                // If query cleared but discovery context remains, re-fetch it
                 discoverGeneration += 1
                 let generation = discoverGeneration
                 let filters = currentDiscoverFilters
@@ -186,11 +188,9 @@ public final class SearchViewModel {
         }
         filters = currentDiscoverFilters
 
-        guard !selectedGenres.isEmpty else {
-            movies = []
-            state = .initial
-            page = 1
-            canLoadMore = true
+        guard hasDiscoveryContext else {
+            discoverGeneration += 1
+            resetResults()
             return
         }
 
@@ -267,11 +267,9 @@ public final class SearchViewModel {
         )
 
         let request = currentDiscoverFilters
-        guard !selectedGenres.isEmpty || hasDiscoverConstraints else {
-            movies = []
-            state = .initial
-            page = 1
-            canLoadMore = true
+        guard hasDiscoveryContext else {
+            discoverGeneration += 1
+            resetResults()
             return
         }
 
@@ -308,6 +306,33 @@ public final class SearchViewModel {
         var updated = filters
         mutate(&updated)
         await applyFilters(updated)
+    }
+
+    @MainActor
+    public func resetAllFilters() async {
+        searchTask?.cancel()
+        genreFetchTask?.cancel()
+        discoverGeneration += 1
+
+        selectedGenres = []
+        filters = DiscoverFilters()
+        setQuery("")
+
+        resetResults()
+        isLoadingMore = false
+    }
+
+    private func setQuery(_ newQuery: String) {
+        suppressesQueryHandling = true
+        query = newQuery
+        suppressesQueryHandling = false
+    }
+
+    private func resetResults() {
+        movies = []
+        state = .initial
+        page = 1
+        canLoadMore = true
     }
 
     @MainActor
@@ -374,7 +399,7 @@ public final class SearchViewModel {
 
     @MainActor
     public func executeSearchImmediate(query: String) async {
-        self.query = query
+        setQuery(query)
         self.selectedGenres = []
         filters = currentDiscoverFilters
         searchTask?.cancel()
@@ -383,8 +408,15 @@ public final class SearchViewModel {
 
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            movies = []
-            state = .initial
+            if filters.hasConstraints {
+                await executeDiscover(
+                    filters: currentDiscoverFilters,
+                    generation: discoverGeneration,
+                    debounce: .zero
+                )
+            } else {
+                resetResults()
+            }
             return
         }
 

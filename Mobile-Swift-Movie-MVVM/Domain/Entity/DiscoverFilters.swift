@@ -36,4 +36,8 @@ public struct DiscoverFilters: Equatable, Sendable {
         self.sort = sort
         self.searchYear = searchYear
     }
+
+    public var hasConstraints: Bool {
+        yearRange != nil || minRating != nil || !sort.isDefault
+    }
 }

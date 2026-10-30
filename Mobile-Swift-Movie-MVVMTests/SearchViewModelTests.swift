@@ -44,6 +44,7 @@ struct SearchViewModelTests {
         #expect(viewModel.state == .initial)
         #expect(viewModel.movies.isEmpty)
         #expect(viewModel.query.isEmpty)
+        #expect(viewModel.filters == DiscoverFilters())
     }
 
     @Test func testSearchImmediateSuccessUpdatesStateToLoaded() async {
@@ -440,6 +441,73 @@ struct SearchViewModelTests {
 
         #expect(viewModel.page == 2)
         #expect(repository.requestedSearchYear == 2021)
+    }
+
+    @Test func testClearingQueryWithActiveFiltersRefetchesDiscover() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
+        await viewModel.executeSearchImmediate(query: "Dune")
+        await viewModel.executeSearchImmediate(query: "")
+
+        #expect(viewModel.state == .loaded)
+        #expect(viewModel.query.isEmpty)
+        #expect(repository.requestedDiscoverFilters?.yearRange == 2000...2010)
+        #expect(repository.requestedDiscoverFilters?.genreIds == [])
+    }
+
+    @Test func testRemovingLastGenreWithActiveFiltersRefetchesDiscover() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], minRating: 7.0))
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+
+        #expect(viewModel.selectedGenres.isEmpty)
+        #expect(viewModel.state == .loaded)
+        #expect(repository.requestedDiscoverFilters?.minRating == 7.0)
+        #expect(repository.requestedDiscoverFilters?.genreIds == [])
+    }
+
+    @Test func testResetFiltersClearsGenresFiltersAndQuery() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(
+            DiscoverFilters(genreIds: [28], yearRange: 2000...2010, minRating: 7.0, sort: .rating)
+        )
+        await viewModel.executeSearchImmediate(query: "Dune")
+
+        await viewModel.resetAllFilters()
+
+        #expect(viewModel.query.isEmpty)
+        #expect(viewModel.selectedGenres.isEmpty)
+        #expect(viewModel.filters == DiscoverFilters())
+        #expect(viewModel.movies.isEmpty)
+        #expect(viewModel.state == .initial)
+        #expect(viewModel.page == 1)
+    }
+
+    @Test func testFilteredDiscoverWithNoResultsShowsEmptyThenResetReturnsToInitial() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([])
+
+        await viewModel.applyFilters(DiscoverFilters(yearRange: 2000...2010))
+
+        #expect(viewModel.state == .empty)
+        #expect(viewModel.filters.yearRange == 2000...2010)
+
+        await viewModel.resetAllFilters()
+
+        #expect(viewModel.state == .initial)
+        #expect(viewModel.filters == DiscoverFilters())
+        #expect(viewModel.movies.isEmpty)
     }
 
     @Test func testSortOnlyApplyUsesDiscover() async {

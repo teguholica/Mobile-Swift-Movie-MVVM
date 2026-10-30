@@ -300,7 +300,7 @@ public struct SearchView: View {
                     .font(.headline.weight(.bold))
                     .foregroundStyle(CinemaTokens.Colors.textPrimary)
 
-                Text("Explore theatrical releases by title or tap any genre pill above.")
+                Text("Explore by title, tap a genre pill, or open Filters to narrow the catalogue.")
                     .font(.subheadline)
                     .foregroundStyle(CinemaTokens.Colors.textSecondary)
                     .multilineTextAlignment(.center)
@@ -328,12 +328,26 @@ public struct SearchView: View {
                     .font(.headline.weight(.bold))
                     .foregroundStyle(CinemaTokens.Colors.textPrimary)
 
-                Text("Try searching with different keywords like 'Inception', 'Batman', or pick a genre above.")
+                Text("Try searching with different keywords like 'Inception', 'Batman', or adjust your filters.")
                     .font(.subheadline)
                     .foregroundStyle(CinemaTokens.Colors.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
+
+            Button("Clear search & filters") {
+                Task {
+                    await viewModel.resetAllFilters()
+                }
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.black)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 9)
+            .background(CinemaTokens.Colors.gold)
+            .clipShape(Capsule())
+            .buttonStyle(.plain)
+            .accessibilityLabel("Clear search and filters")
         }
         .padding(.vertical, 40)
     }
