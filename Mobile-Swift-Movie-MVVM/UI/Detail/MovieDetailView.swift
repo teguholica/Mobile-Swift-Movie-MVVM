@@ -74,11 +74,6 @@ public struct MovieDetailView: View {
                         .foregroundStyle(viewModel.isFavorite ? CinemaTokens.Colors.gold : .primary)
                         .scaleEffect(favoriteScale)
                         .frame(width: 36, height: 36)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
-                        .overlay(
-                            Circle().stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
-                        )
                 }
                 .accessibilityLabel("Bookmark \(viewModel.movieDetail?.title ?? "movie")")
             }
