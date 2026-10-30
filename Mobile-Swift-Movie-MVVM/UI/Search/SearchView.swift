@@ -81,18 +81,18 @@ public struct SearchView: View {
         Button {
             isFilterSheetPresented = true
         } label: {
-            Image(systemName: "line.3.horizontal.decrease.circle")
-                .overlay(alignment: .topTrailing) {
-                    if viewModel.activeFilterCount > 0 {
-                        Text("\(viewModel.activeFilterCount)")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.black)
-                            .frame(minWidth: 15, minHeight: 15)
-                            .background(CinemaTokens.Colors.gold)
-                            .clipShape(Circle())
-                            .offset(x: 7, y: -7)
-                    }
+            HStack(spacing: 5) {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+
+                if viewModel.activeFilterCount > 0 {
+                    Text("\(viewModel.activeFilterCount)")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.black)
+                        .frame(minWidth: 16, minHeight: 16)
+                        .background(CinemaTokens.Colors.gold)
+                        .clipShape(Circle())
                 }
+            }
         }
         .accessibilityLabel("Filters")
         .accessibilityValue(
