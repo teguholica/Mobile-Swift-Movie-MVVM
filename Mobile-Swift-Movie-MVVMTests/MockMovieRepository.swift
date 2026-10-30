@@ -24,6 +24,8 @@ final class MockMovieRepository: MovieRepositoryProtocol, @unchecked Sendable {
     var discoverCallCount = 0
 
     var favoritesList: [Movie] = []
+    var genresResult: Result<[Genre], Error> = .success([])
+    var getGenresCallCount = 0
     var toggleFavoriteResult: Bool = true
     var isFavoriteResult: Bool = false
 
@@ -78,6 +80,11 @@ final class MockMovieRepository: MovieRepositoryProtocol, @unchecked Sendable {
         getPersonProfileCallCount += 1
         requestedPersonProfileId = id
         return try personProfileResult.get()
+    }
+
+    func getGenres() async throws -> [Genre] {
+        getGenresCallCount += 1
+        return try genresResult.get()
     }
 
     func getFavoriteMovies() async throws -> [Movie] {

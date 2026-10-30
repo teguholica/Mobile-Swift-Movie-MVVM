@@ -51,13 +51,16 @@ public struct SearchView: View {
                 text: $viewModel.query,
                 prompt: "Search movies by title..."
             )
+            .task {
+                await viewModel.loadGenres()
+            }
         }
     }
 
     private var genreChipsBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(Genre.popularPresets) { genre in
+                ForEach(viewModel.genres) { genre in
                     let isSelected = viewModel.isSelected(genre)
                     Button {
                         let generator = UIImpactFeedbackGenerator(style: .light)
