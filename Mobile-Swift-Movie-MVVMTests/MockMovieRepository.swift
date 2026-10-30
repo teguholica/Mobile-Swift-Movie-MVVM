@@ -19,7 +19,9 @@ final class MockMovieRepository: MovieRepositoryProtocol, @unchecked Sendable {
     var getPersonProfileCallCount = 0
     var requestedPersonProfileId: Int?
     var requestedDiscoverFilters: DiscoverFilters?
+    var requestedDiscoverFiltersHistory: [DiscoverFilters] = []
     var requestedDiscoverPage: Int?
+    var discoverCallCount = 0
 
     var favoritesList: [Movie] = []
     var toggleFavoriteResult: Bool = true
@@ -56,7 +58,9 @@ final class MockMovieRepository: MovieRepositoryProtocol, @unchecked Sendable {
     }
 
     func discoverMovies(filters: DiscoverFilters, page: Int) async throws -> [Movie] {
+        discoverCallCount += 1
         requestedDiscoverFilters = filters
+        requestedDiscoverFiltersHistory.append(filters)
         requestedDiscoverPage = page
         if let provider = discoverResultProvider {
             return try provider(filters).get()

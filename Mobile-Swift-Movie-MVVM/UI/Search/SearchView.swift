@@ -35,11 +35,7 @@ public struct SearchView: View {
                     case .error(let message):
                         ErrorView(message: message) {
                             Task {
-                                if let genre = viewModel.selectedGenre {
-                                    await viewModel.selectGenre(genre)
-                                } else {
-                                    await viewModel.executeSearchImmediate(query: viewModel.query)
-                                }
+                                await viewModel.refreshResults()
                             }
                         }
                     case .loaded:
@@ -62,12 +58,12 @@ public struct SearchView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(Genre.popularPresets) { genre in
-                    let isSelected = viewModel.selectedGenre?.id == genre.id
+                    let isSelected = viewModel.isSelected(genre)
                     Button {
                         let generator = UIImpactFeedbackGenerator(style: .light)
                         generator.impactOccurred()
                         Task {
-                            await viewModel.selectGenre(genre)
+                            await viewModel.toggleGenre(genre)
                         }
                     } label: {
                         Text(genre.name)
@@ -83,6 +79,7 @@ public struct SearchView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
             .padding(.horizontal, 16)
