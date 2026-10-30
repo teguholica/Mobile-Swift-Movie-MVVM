@@ -16,17 +16,20 @@ struct MovieDetailViewModelTests {
         let detailUseCase = GetMovieDetailsUseCase(repository: repository)
         let toggleUseCase = ToggleFavoriteMovieUseCase(repository: repository)
         let checkUseCase = CheckIsFavoriteUseCase(repository: repository)
+        let discoverUseCase = DiscoverMoviesByGenreUseCase(repository: repository)
         let viewModel = MovieDetailViewModel(
             movieId: movieId,
             getMovieDetailsUseCase: detailUseCase,
             toggleFavoriteMovieUseCase: toggleUseCase,
-            checkIsFavoriteUseCase: checkUseCase
+            checkIsFavoriteUseCase: checkUseCase,
+            discoverMoviesByGenreUseCase: discoverUseCase
         )
         return (viewModel, repository)
     }
 
     private func makeSampleDetail(
         id: Int = 550,
+        genres: [Genre] = [Genre(id: 18, name: "Drama"), Genre(id: 53, name: "Thriller")],
         trailer: MovieVideo? = nil,
         cast: [CastMember] = [],
         providers: WatchProviders? = nil,
@@ -44,7 +47,7 @@ struct MovieDetailViewModelTests {
             runtime: 139,
             tagline: "Mischief. Mayhem. Soap.",
             status: "Released",
-            genres: [Genre(id: 18, name: "Drama"), Genre(id: 53, name: "Thriller")],
+            genres: genres,
             trailer: trailer,
             cast: cast,
             providers: providers,
@@ -205,14 +208,65 @@ struct MovieDetailViewModelTests {
         #expect(viewModel.movieDetail?.recommendedMovies.map(\.id) == [101, 102])
     }
 
-    @Test func testFetchDetailsDoesNotRequestDiscoverPerGenre() async {
+    @Test func testFetchDetailsBuildsGenreSections() async {
         let (viewModel, repository) = makeSUT(movieId: 550)
+        let dramaMovies = [makeMovie(id: 101, title: "Drama One"), makeMovie(id: 102, title: "Drama Two")]
+        let thrillerMovies = [makeMovie(id: 201, title: "Thriller One")]
         repository.movieDetailsResult = .success(makeSampleDetail())
+        repository.discoverResultProvider = { genreId in
+            switch genreId {
+            case 18: return .success(dramaMovies)
+            case 53: return .success(thrillerMovies)
+            default: return .success([])
+            }
+        }
 
         await viewModel.fetchDetails()
 
-        #expect(repository.requestedDiscoverGenreId == nil)
+        #expect(viewModel.genreSections.map(\.genre.name) == ["Drama", "Thriller"])
+        #expect(viewModel.genreSections[0].movies.map(\.id) == [101, 102])
+        #expect(viewModel.genreSections[1].movies.map(\.id) == [201])
+        #expect(viewModel.isLoadingRelated == false)
         #expect(repository.getMovieDetailsCallCount == 1)
+    }
+
+    @Test func testGenreSectionsExcludeCurrentMovie() async {
+        let (viewModel, repository) = makeSUT(movieId: 550)
+        let movies = [makeMovie(id: 550, title: "Fight Club"), makeMovie(id: 101, title: "Se7en")]
+        repository.movieDetailsResult = .success(makeSampleDetail())
+        repository.discoverResultProvider = { _ in .success(movies) }
+
+        await viewModel.fetchDetails()
+
+        #expect(viewModel.genreSections.allSatisfy { section in
+            section.movies.allSatisfy { $0.id != 550 }
+        })
+        #expect(viewModel.genreSections.allSatisfy { $0.movies.map(\.id) == [101] })
+    }
+
+    @Test func testFailedGenreDiscoverIsIgnored() async {
+        let (viewModel, repository) = makeSUT(movieId: 550)
+        let thrillerMovies = [makeMovie(id: 201, title: "Thriller One")]
+        repository.movieDetailsResult = .success(makeSampleDetail())
+        repository.discoverResultProvider = { genreId in
+            genreId == 18 ? .failure(URLError(.badServerResponse)) : .success(thrillerMovies)
+        }
+
+        await viewModel.fetchDetails()
+
+        #expect(viewModel.genreSections.map(\.genre.id) == [53])
+        #expect(viewModel.isLoadingRelated == false)
+    }
+
+    @Test func testGenreSectionsEmptyWhenDetailHasNoGenres() async {
+        let (viewModel, repository) = makeSUT(movieId: 550)
+        repository.movieDetailsResult = .success(makeSampleDetail(genres: []))
+
+        await viewModel.fetchDetails()
+
+        #expect(viewModel.genreSections.isEmpty)
+        #expect(repository.requestedDiscoverGenreId == nil)
+        #expect(viewModel.isLoadingRelated == false)
     }
 
     @Test func testRecommendedMoviesEmptyWhenNone() async {

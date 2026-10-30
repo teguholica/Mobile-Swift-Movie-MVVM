@@ -24,12 +24,14 @@ public struct MovieDetailView: View {
             let detailUseCase = GetMovieDetailsUseCase(repository: repository)
             let toggleUseCase = ToggleFavoriteMovieUseCase(repository: repository)
             let checkUseCase = CheckIsFavoriteUseCase(repository: repository)
+            let discoverUseCase = DiscoverMoviesByGenreUseCase(repository: repository)
             _viewModel = State(
                 initialValue: MovieDetailViewModel(
                     movieId: movieId,
                     getMovieDetailsUseCase: detailUseCase,
                     toggleFavoriteMovieUseCase: toggleUseCase,
-                    checkIsFavoriteUseCase: checkUseCase
+                    checkIsFavoriteUseCase: checkUseCase,
+                    discoverMoviesByGenreUseCase: discoverUseCase
                 )
             )
         }
@@ -252,7 +254,7 @@ public struct MovieDetailView: View {
                     .padding(.horizontal, 20)
 
                     // 7. More Like This
-                    relatedMoviesSection(for: detail)
+                    moreLikeThisSection(for: detail)
                 }
                 .frame(width: screenWidth)
                 .padding(.bottom, 40)
@@ -263,32 +265,78 @@ public struct MovieDetailView: View {
     }
 
     @ViewBuilder
-    private func relatedMoviesSection(for detail: MovieDetail) -> some View {
-        if !detail.recommendedMovies.isEmpty {
-            VStack(alignment: .leading, spacing: 14) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("MORE LIKE THIS")
-                        .font(.caption2.weight(.heavy))
-                        .tracking(1.5)
-                        .foregroundStyle(CinemaTokens.Colors.gold)
+    private func moreLikeThisSection(for detail: MovieDetail) -> some View {
+        if !viewModel.genreSections.isEmpty {
+            LazyVStack(alignment: .leading, spacing: 26) {
+                ForEach(viewModel.genreSections) { section in
+                    horizontalMovieRow(
+                        title: "More in \(section.genre.name)",
+                        movies: section.movies
+                    )
+                }
+            }
+        } else if viewModel.isLoadingRelated && detail.recommendedMovies.isEmpty {
+            relatedLoadingPlaceholder
+        } else if !detail.recommendedMovies.isEmpty {
+            horizontalMovieRow(title: "More Like This", movies: detail.recommendedMovies)
+        }
+    }
 
-                    Text("More Like This")
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(CinemaTokens.Colors.textPrimary)
+    private func horizontalMovieRow(title: String, movies: [Movie]) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("MORE LIKE THIS")
+                    .font(.caption2.weight(.heavy))
+                    .tracking(1.5)
+                    .foregroundStyle(CinemaTokens.Colors.gold)
+
+                Text(title)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(CinemaTokens.Colors.textPrimary)
+            }
+            .padding(.horizontal, 20)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 14) {
+                    ForEach(movies) { movie in
+                        NavigationLink(destination: MovieDetailView(movieId: movie.id, onToggleFavorite: onToggleFavorite)) {
+                            relatedMovieCard(for: movie)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 .padding(.horizontal, 20)
+            }
+        }
+    }
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 14) {
-                        ForEach(detail.recommendedMovies) { movie in
-                            NavigationLink(destination: MovieDetailView(movieId: movie.id, onToggleFavorite: onToggleFavorite)) {
-                                relatedMovieCard(for: movie)
-                            }
-                            .buttonStyle(.plain)
-                        }
+    private var relatedLoadingPlaceholder: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("MORE LIKE THIS")
+                    .font(.caption2.weight(.heavy))
+                    .tracking(1.5)
+                    .foregroundStyle(CinemaTokens.Colors.gold)
+
+                Text("Loading Recommendations...")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(CinemaTokens.Colors.textPrimary)
+            }
+            .padding(.horizontal, 20)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(0..<4) { _ in
+                        RoundedRectangle(cornerRadius: CinemaTokens.Radius.card)
+                            .fill(CinemaTokens.Colors.elevated)
+                            .frame(width: 124, height: 186)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: CinemaTokens.Radius.card)
+                                    .stroke(CinemaTokens.Colors.glassStroke, lineWidth: 0.5)
+                            )
                     }
-                    .padding(.horizontal, 20)
                 }
+                .padding(.horizontal, 20)
             }
         }
     }
