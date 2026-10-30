@@ -14,12 +14,8 @@ struct SearchViewModelTests {
         debounce: Duration = .zero
     ) -> (SearchViewModel, MockMovieRepository) {
         let useCase = SearchMoviesUseCase(repository: repository)
-        let discoverUseCase = DiscoverMoviesUseCase(repository: repository)
-        let getGenresUseCase = GetGenresUseCase(repository: repository)
         let viewModel = SearchViewModel(
             searchMoviesUseCase: useCase,
-            discoverMoviesUseCase: discoverUseCase,
-            getGenresUseCase: getGenresUseCase,
             debounceDuration: debounce
         )
         return (viewModel, repository)
@@ -44,13 +40,12 @@ struct SearchViewModelTests {
         #expect(viewModel.state == .initial)
         #expect(viewModel.movies.isEmpty)
         #expect(viewModel.query.isEmpty)
-        #expect(viewModel.filters == DiscoverFilters())
+        #expect(viewModel.selectedYear == nil)
     }
 
     @Test func testSearchImmediateSuccessUpdatesStateToLoaded() async {
         let (viewModel, repository) = makeSUT()
-        let movies = [makeMovie(id: 1, title: "Inception")]
-        repository.searchResult = .success(movies)
+        repository.searchResult = .success([makeMovie(id: 1, title: "Inception")])
 
         await viewModel.executeSearchImmediate(query: "Inception")
 
@@ -91,6 +86,7 @@ struct SearchViewModelTests {
         #expect(viewModel.state == .loaded)
 
         viewModel.query = ""
+
         #expect(viewModel.state == .initial)
         #expect(viewModel.movies.isEmpty)
     }
@@ -102,7 +98,6 @@ struct SearchViewModelTests {
 
         repository.searchResult = .success(page1)
         await viewModel.executeSearchImmediate(query: "Movie")
-        #expect(viewModel.movies.count == 1)
         #expect(viewModel.page == 1)
 
         repository.searchResult = .success(page2)
@@ -110,351 +105,90 @@ struct SearchViewModelTests {
 
         #expect(viewModel.movies.count == 2)
         #expect(viewModel.page == 2)
-        #expect(viewModel.movies.map { $0.id } == [1, 2])
+        #expect(viewModel.movies.map(\.id) == [1, 2])
     }
 
-    @Test func testGenresStartFromPresets() {
-        let (viewModel, _) = makeSUT()
-
-        #expect(viewModel.genres == Genre.popularPresets)
-    }
-
-    @Test func testLoadGenresReplacesPresets() async {
+    @Test func testApplyYearWithQueryRepeatsSearchFromPageOne() async {
         let (viewModel, repository) = makeSUT()
-        repository.genresResult = .success([
-            Genre(id: 28, name: "Action"),
-            Genre(id: 37, name: "Western")
-        ])
+        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
 
-        await viewModel.loadGenres()
+        await viewModel.executeSearchImmediate(query: "Dune")
+        repository.searchResult = .success([makeMovie(id: 2, title: "Dune Part Two")])
+        await viewModel.applyYear(2021)
 
-        #expect(viewModel.genres.map(\.name) == ["Action", "Western"])
+        #expect(viewModel.selectedYear == 2021)
+        #expect(viewModel.page == 1)
+        #expect(repository.requestedSearchQuery == "Dune")
+        #expect(repository.requestedSearchYear == 2021)
+        #expect(viewModel.state == .loaded)
     }
 
-    @Test func testLoadGenresPreservesSelectedGenreByID() async {
+    @Test func testApplyYearResetsPagination() async {
         let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-        await viewModel.applyCategory([878])
+        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
 
-        repository.genresResult = .success([
-            Genre(id: 878, name: "Science Fiction"),
-            Genre(id: 37, name: "Western")
-        ])
-        await viewModel.loadGenres()
+        await viewModel.executeSearchImmediate(query: "Dune")
+        repository.searchResult = .success([makeMovie(id: 2, title: "Dune Part Two")])
+        await viewModel.loadMore()
+        #expect(viewModel.page == 2)
 
-        #expect(viewModel.selectedGenres.map(\.id) == [878])
-        #expect(viewModel.selectedGenres.first?.name == "Science Fiction")
-        #expect(viewModel.genres.map(\.id) == [878, 37])
+        repository.searchResult = .success([makeMovie(id: 3, title: "Dune 2021")])
+        await viewModel.applyYear(2021)
+
+        #expect(viewModel.page == 1)
+        #expect(repository.requestedSearchYear == 2021)
+        #expect(viewModel.movies.count == 1)
     }
 
-    @Test func testLoadGenresRequestsCatalogueOnce() async {
-        let (viewModel, repository) = makeSUT()
-        repository.genresResult = .success([Genre(id: 28, name: "Action")])
-
-        await viewModel.loadGenres()
-        await viewModel.loadGenres()
-
-        #expect(repository.getGenresCallCount == 1)
-    }
-
-    @Test func testLoadGenresFailureKeepsPresetsAndState() async {
-        struct CatalogueFailure: Error {}
+    @Test func testRetryAfterErrorKeepsQueryAndYear() async {
+        struct SearchFailure: Error, LocalizedError {
+            var errorDescription: String? { "Network down" }
+        }
 
         let (viewModel, repository) = makeSUT()
-        repository.genresResult = .failure(CatalogueFailure())
+        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
 
-        await viewModel.loadGenres()
-        await viewModel.loadGenres()
+        await viewModel.executeSearchImmediate(query: "Dune")
+        await viewModel.applyYear(2021)
 
-        #expect(viewModel.genres == Genre.popularPresets)
+        repository.searchResult = .failure(SearchFailure())
+        await viewModel.retry()
+        #expect(viewModel.state == .error("Network down"))
+
+        repository.searchResult = .success([makeMovie(id: 2, title: "Dune 2021")])
+        await viewModel.retry()
+
+        #expect(viewModel.state == .loaded)
+        #expect(repository.requestedSearchQuery == "Dune")
+        #expect(repository.requestedSearchYear == 2021)
+    }
+
+    @Test func testApplyYearWithoutQueryStoresOnly() async {
+        let (viewModel, repository) = makeSUT()
+
+        await viewModel.applyYear(2021)
+
+        #expect(viewModel.selectedYear == 2021)
         #expect(viewModel.state == .initial)
-        #expect(repository.getGenresCallCount == 1)
+        #expect(repository.requestedSearchQuery == nil)
     }
 
-    @Test func testApplyingDraftWithoutYearKeepsOtherFilters() async {
+    @Test func testSearchPassesSelectedYear() async {
         let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.applyFilters(
-            DiscoverFilters(yearRange: 2000...2010, minRating: 7.0)
-        )
-        var draft = viewModel.filters
-        draft.yearRange = nil
-        await viewModel.applyFilters(draft)
-
-        #expect(viewModel.filters.yearRange == nil)
-        #expect(viewModel.filters.minRating == 7.0)
-        #expect(viewModel.activeFilterCount == 1)
-        #expect(repository.requestedDiscoverFilters?.minRating == 7.0)
-    }
-
-    @Test func testFilterContextReflectsQueryCategoryAndAdvancedFilters() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        #expect(viewModel.hasFilterContext == false)
-
-        viewModel.query = "Dune"
-        #expect(viewModel.hasFilterContext)
-
-        viewModel.query = ""
-        #expect(viewModel.hasFilterContext == false)
-
-        await viewModel.applyCategory([28])
-        #expect(viewModel.hasFilterContext)
-
-        await viewModel.applyFilters(DiscoverFilters())
-        #expect(viewModel.hasFilterContext == false)
-
-        await viewModel.applyFilters(DiscoverFilters(minRating: 7.0))
-        #expect(viewModel.hasFilterContext)
-    }
-
-    @Test func testCategorySummaryReflectsSelection() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        #expect(viewModel.categorySummary == "Category")
-
-        await viewModel.applyCategory([28])
-        #expect(viewModel.categorySummary == "Category: Action")
-        #expect(viewModel.categoryAccessibilityLabel == "Category: Action")
-
-        await viewModel.applyCategory([28, 35])
-        #expect(viewModel.categorySummary == "Category: Action +1")
-        #expect(viewModel.categoryAccessibilityLabel == "Category: Action, Comedy")
-    }
-
-    @Test func testApplyingSameCategoryDoesNotRefetch() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.applyCategory([28])
-        let calls = repository.discoverCallCount
-
-        await viewModel.applyCategory([28])
-
-        #expect(repository.discoverCallCount == calls)
-    }
-
-    @Test func testActiveFilterCountExcludesCategory() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.applyCategory([28])
-
-        #expect(viewModel.activeFilterCount == 0)
-    }
-
-    @Test func testApplyCategoryMapsIdentifiersAndClearsQuery() async {
-        let (viewModel, repository) = makeSUT()
-        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+        repository.searchResult = .success([])
+        viewModel.selectedYear = 2021
 
         await viewModel.executeSearchImmediate(query: "Dune")
-        await viewModel.applyCategory([28, 35])
 
-        #expect(viewModel.query.isEmpty)
-        #expect(viewModel.selectedGenres.map(\.id) == [28, 35])
-        #expect(repository.requestedDiscoverFilters?.genreIds == [28, 35])
-        #expect(viewModel.state == .loaded)
-    }
-
-    @Test func testApplyFiltersUsesGenreIdentifiersFromDraft() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.applyFilters(
-            DiscoverFilters(genreIds: [28], yearRange: 2000...2010)
-        )
-
-        #expect(viewModel.selectedGenres.map(\.id) == [28])
-        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
-        #expect(repository.requestedDiscoverFilters?.yearRange == 2000...2010)
-    }
-
-    @Test func testApplyFiltersWithCategoryFromTextModeSwitchesToDiscover() async {
-        let (viewModel, repository) = makeSUT()
-        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.executeSearchImmediate(query: "Dune")
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28]))
-
-        #expect(viewModel.query.isEmpty)
-        #expect(viewModel.selectedGenres.map(\.id) == [28])
-        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
-    }
-
-    @Test func testApplyFiltersCommitsYearRangeAndRefreshesPageOne() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.applyCategory([28])
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
-
-        #expect(viewModel.filters.yearRange == 2000...2010)
-        #expect(viewModel.page == 1)
-        #expect(repository.requestedDiscoverFilters?.yearRange == 2000...2010)
-        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
-        #expect(repository.requestedDiscoverPage == 1)
-    }
-
-    @Test func testActiveFilterCountReflectsYearRange() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        #expect(viewModel.activeFilterCount == 0)
-
-        await viewModel.applyFilters(DiscoverFilters(yearRange: 2000...2010))
-        #expect(viewModel.activeFilterCount == 1)
-
-        await viewModel.applyFilters(DiscoverFilters())
-        #expect(viewModel.activeFilterCount == 0)
-    }
-
-    @Test func testPaginationKeepsCommittedYearRange() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "Action 1")])
-
-        await viewModel.applyCategory([28])
-        repository.discoverResult = .success([makeMovie(id: 11, title: "Action 2")])
-        await viewModel.loadMore()
-        #expect(viewModel.page == 2)
-
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
-        #expect(viewModel.page == 1)
-
-        repository.discoverResult = .success([makeMovie(id: 12, title: "Action 3")])
-        await viewModel.loadMore()
-
-        #expect(viewModel.page == 2)
-        #expect(repository.requestedDiscoverFilters?.yearRange == 2000...2010)
-        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
-    }
-
-    @Test func testApplyFiltersCommitsMinimumRating() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.applyCategory([28])
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], minRating: 7.0))
-
-        #expect(viewModel.filters.minRating == 7.0)
-        #expect(viewModel.activeFilterCount == 1)
-        #expect(repository.requestedDiscoverFilters?.minRating == 7.0)
-        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
-    }
-
-    @Test func testPaginationKeepsMinimumRating() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "Action 1")])
-
-        await viewModel.applyCategory([28])
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], minRating: 7.0))
-
-        repository.discoverResult = .success([makeMovie(id: 11, title: "Action 2")])
-        await viewModel.loadMore()
-
-        #expect(viewModel.page == 2)
-        #expect(repository.requestedDiscoverFilters?.minRating == 7.0)
-        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
-    }
-
-    @Test func testApplyFiltersCommitsSort() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.applyCategory([28])
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], sort: .rating))
-
-        #expect(viewModel.filters.sort == .rating)
-        #expect(viewModel.activeFilterCount == 1)
-        #expect(repository.requestedDiscoverFilters?.sort == .rating)
-    }
-
-    @Test func testPaginationKeepsSort() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "Action 1")])
-
-        await viewModel.applyCategory([28])
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], sort: .title))
-
-        repository.discoverResult = .success([makeMovie(id: 11, title: "Action 2")])
-        await viewModel.loadMore()
-
-        #expect(viewModel.page == 2)
-        #expect(repository.requestedDiscoverFilters?.sort == .title)
-    }
-
-    @Test func testApplySearchYearRefetchesTextSearchWithYear() async {
-        let (viewModel, repository) = makeSUT()
-        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
-
-        await viewModel.executeSearchImmediate(query: "Dune")
-        await viewModel.applyFilters(DiscoverFilters(searchYear: 2021))
-
-        #expect(viewModel.filters.searchYear == 2021)
-        #expect(repository.requestedSearchYear == 2021)
-        #expect(viewModel.state == .loaded)
-    }
-
-    @Test func testSearchYearAndDiscoverRangeStayIndependent() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
-
-        await viewModel.applyCategory([28])
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
-
-        await viewModel.executeSearchImmediate(query: "Dune")
-        await viewModel.applyFilters(DiscoverFilters(searchYear: 2021))
-
-        #expect(viewModel.filters.yearRange == 2000...2010)
-        #expect(viewModel.filters.searchYear == 2021)
         #expect(repository.requestedSearchYear == 2021)
     }
 
-    @Test func testSwitchingBackToDiscoverPreservesRangeAndSearchYear() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
-
-        await viewModel.applyCategory([28])
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
-        await viewModel.executeSearchImmediate(query: "Dune")
-        await viewModel.applyFilters(DiscoverFilters(searchYear: 2021))
-
-        await viewModel.applyCategory([35])
-
-        #expect(viewModel.query.isEmpty)
-        #expect(viewModel.filters.yearRange == 2000...2010)
-        #expect(viewModel.filters.searchYear == 2021)
-        #expect(repository.requestedDiscoverFilters?.yearRange == 2000...2010)
-    }
-
-    @Test func testActiveFilterCountIgnoresDiscoverFiltersInTextMode() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
-
-        await viewModel.applyCategory([28])
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
-        #expect(viewModel.activeFilterCount == 1)
-
-        await viewModel.executeSearchImmediate(query: "Dune")
-        #expect(viewModel.activeFilterCount == 0)
-
-        await viewModel.applyFilters(DiscoverFilters(searchYear: 2021))
-        #expect(viewModel.activeFilterCount == 1)
-    }
-
-    @Test func testSearchPaginationKeepsSearchYear() async {
+    @Test func testPaginationKeepsSelectedYear() async {
         let (viewModel, repository) = makeSUT()
         repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
 
         await viewModel.executeSearchImmediate(query: "Dune")
-        await viewModel.applyFilters(DiscoverFilters(searchYear: 2021))
+        await viewModel.applyYear(2021)
 
         repository.searchResult = .success([makeMovie(id: 2, title: "Dune Part Two")])
         await viewModel.loadMore()
@@ -463,150 +197,31 @@ struct SearchViewModelTests {
         #expect(repository.requestedSearchYear == 2021)
     }
 
-    @Test func testClearingQueryWithActiveFiltersRefetchesDiscover() async {
+    @Test func testRefreshReusesQueryAndYear() async {
         let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
         repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
 
-        await viewModel.applyCategory([28])
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], yearRange: 2000...2010))
         await viewModel.executeSearchImmediate(query: "Dune")
-        await viewModel.executeSearchImmediate(query: "")
+        await viewModel.applyYear(2021)
+        await viewModel.refresh()
 
-        #expect(viewModel.state == .loaded)
-        #expect(viewModel.query.isEmpty)
-        #expect(repository.requestedDiscoverFilters?.yearRange == 2000...2010)
-        #expect(repository.requestedDiscoverFilters?.genreIds == [])
-    }
-
-    @Test func testClearingCategoryWithActiveFiltersRefetchesDiscover() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.applyCategory([28])
-        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], minRating: 7.0))
-        await viewModel.applyCategory([])
-
-        #expect(viewModel.selectedGenres.isEmpty)
-        #expect(viewModel.state == .loaded)
-        #expect(repository.requestedDiscoverFilters?.minRating == 7.0)
-        #expect(repository.requestedDiscoverFilters?.genreIds == [])
-    }
-
-    @Test func testResetFiltersClearsGenresFiltersAndQuery() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
-
-        await viewModel.applyCategory([28])
-        await viewModel.applyFilters(
-            DiscoverFilters(genreIds: [28], yearRange: 2000...2010, minRating: 7.0, sort: .rating)
-        )
-        await viewModel.executeSearchImmediate(query: "Dune")
-
-        await viewModel.resetAllFilters()
-
-        #expect(viewModel.query.isEmpty)
-        #expect(viewModel.selectedGenres.isEmpty)
-        #expect(viewModel.filters == DiscoverFilters())
-        #expect(viewModel.movies.isEmpty)
-        #expect(viewModel.state == .initial)
+        #expect(repository.requestedSearchQuery == "Dune")
+        #expect(repository.requestedSearchYear == 2021)
         #expect(viewModel.page == 1)
     }
 
-    @Test func testFilteredDiscoverWithNoResultsShowsEmptyThenResetReturnsToInitial() async {
+    @Test func testResetClearsQueryAndYear() async {
         let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([])
+        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
 
-        await viewModel.applyFilters(DiscoverFilters(yearRange: 2000...2010))
-
-        #expect(viewModel.state == .empty)
-        #expect(viewModel.filters.yearRange == 2000...2010)
-        #expect(viewModel.hasFilterContext)
-
-        await viewModel.resetAllFilters()
-
-        #expect(viewModel.state == .initial)
-        #expect(viewModel.filters == DiscoverFilters())
-        #expect(viewModel.movies.isEmpty)
-        #expect(viewModel.hasFilterContext == false)
-    }
-
-    @Test func testFilterContextRemainsDuringErrorState() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .failure(URLError(.badURL))
-
-        await viewModel.applyFilters(DiscoverFilters(minRating: 7.0))
-
-        #expect(viewModel.hasFilterContext)
-        #expect(viewModel.state != .initial)
-    }
-
-    @Test func testSortOnlyApplyUsesDiscover() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.applyFilters(DiscoverFilters(sort: .rating))
-
-        #expect(repository.requestedDiscoverFilters?.sort == .rating)
-        #expect(repository.requestedDiscoverFilters?.genreIds == [])
-        #expect(viewModel.state == .loaded)
-    }
-
-    @Test func testFilterOnlyPaginationUsesDiscover() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 1, title: "First")])
-
-        await viewModel.applyFilters(DiscoverFilters(yearRange: 2000...2010))
-
-        repository.discoverResult = .success([makeMovie(id: 2, title: "Second")])
-        await viewModel.loadMore()
-
-        #expect(viewModel.page == 2)
-        #expect(repository.requestedDiscoverPage == 2)
-        #expect(repository.requestedDiscoverFilters?.yearRange == 2000...2010)
-    }
-
-    @Test func testSelectingCategoryClearsQuery() async {
-        let (viewModel, repository) = makeSUT()
-        repository.searchResult = .success([makeMovie(id: 1, title: "Batman")])
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.executeSearchImmediate(query: "Batman")
-        await viewModel.applyCategory([28])
+        await viewModel.executeSearchImmediate(query: "Dune")
+        await viewModel.applyYear(2021)
+        await viewModel.reset()
 
         #expect(viewModel.query.isEmpty)
-        #expect(viewModel.selectedGenres.map(\.id) == [28])
-    }
-
-    @Test func testTypingQueryClearsSelectedCategories() async {
-        let (viewModel, repository) = makeSUT()
-        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
-
-        await viewModel.applyCategory([28])
-        #expect(viewModel.selectedGenres.map(\.id) == [28])
-
-        viewModel.query = "Dune"
-
-        #expect(viewModel.selectedGenres.isEmpty)
-    }
-
-    @Test func testLoadMoreWithSelectedCategoriesPaginatesDiscovery() async {
-        let (viewModel, repository) = makeSUT()
-        let page1 = [makeMovie(id: 10, title: "Action 1")]
-        let page2 = [makeMovie(id: 11, title: "Action 2")]
-
-        repository.discoverResult = .success(page1)
-        await viewModel.applyCategory([28])
-        #expect(viewModel.movies.count == 1)
+        #expect(viewModel.selectedYear == nil)
+        #expect(viewModel.state == .initial)
+        #expect(viewModel.movies.isEmpty)
         #expect(viewModel.page == 1)
-
-        repository.discoverResult = .success(page2)
-        await viewModel.loadMore()
-
-        #expect(viewModel.movies.count == 2)
-        #expect(viewModel.page == 2)
-        #expect(repository.requestedDiscoverPage == 2)
-        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
     }
 }

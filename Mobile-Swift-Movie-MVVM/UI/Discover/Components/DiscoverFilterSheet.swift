@@ -9,21 +9,18 @@ struct DiscoverFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var draft: DiscoverFilters
-    private let isTextMode: Bool
     private let currentYear: Int
     private let selectableYears: [Int]
     private let onApply: (DiscoverFilters) -> Void
 
     init(
         filters: DiscoverFilters,
-        isTextMode: Bool,
         onApply: @escaping (DiscoverFilters) -> Void
     ) {
         let currentYear = Calendar.current.component(.year, from: Date())
         self.currentYear = currentYear
         self.selectableYears = Array((1950...currentYear).reversed())
         _draft = State(initialValue: filters)
-        self.isTextMode = isTextMode
         self.onApply = onApply
     }
 
@@ -31,36 +28,22 @@ struct DiscoverFilterSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    if isTextMode {
-                        searchYearRow
-                    } else {
-                        fromYearRow
-                        toYearRow
-                    }
+                    fromYearRow
+                    toYearRow
                 } header: {
                     Text("Release year")
                 }
 
                 Section {
                     ratingPicker
-                        .disabled(isTextMode)
                 } header: {
                     Text("Minimum rating")
-                } footer: {
-                    if isTextMode {
-                        Text("Rating filters apply to Discover only.")
-                    }
                 }
 
                 Section {
                     sortPicker
-                        .disabled(isTextMode)
                 } header: {
                     Text("Sort by")
-                } footer: {
-                    if isTextMode {
-                        Text("Sort applies to Discover only.")
-                    }
                 }
             }
             .navigationTitle("Filters")
@@ -81,16 +64,6 @@ struct DiscoverFilterSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-    }
-
-    private var searchYearRow: some View {
-        Picker("Year", selection: $draft.searchYear) {
-            Text("Any").tag(Int?.none)
-            ForEach(selectableYears, id: \.self) { year in
-                Text(String(year)).tag(Int?.some(year))
-            }
-        }
-        .pickerStyle(.menu)
     }
 
     private var fromYearRow: some View {

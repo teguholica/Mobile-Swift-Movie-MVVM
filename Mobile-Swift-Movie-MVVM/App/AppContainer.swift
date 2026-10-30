@@ -26,9 +26,7 @@ public final class AppContainer {
 
     public func makeSearchViewModel() -> SearchViewModel {
         SearchViewModel(
-            searchMoviesUseCase: SearchMoviesUseCase(repository: movieRepository),
-            discoverMoviesUseCase: DiscoverMoviesUseCase(repository: movieRepository),
-            getGenresUseCase: GetGenresUseCase(repository: movieRepository)
+            searchMoviesUseCase: SearchMoviesUseCase(repository: movieRepository)
         )
     }
 

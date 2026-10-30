@@ -9,7 +9,6 @@ struct CategoryFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private let genres: [Genre]
-    private let isTextMode: Bool
     private let onApply: ([Int]) -> Void
 
     @State private var selection: Set<Int>
@@ -21,11 +20,9 @@ struct CategoryFilterSheet: View {
     init(
         selectedGenreIds: [Int],
         genres: [Genre],
-        isTextMode: Bool,
         onApply: @escaping ([Int]) -> Void
     ) {
         self.genres = genres
-        self.isTextMode = isTextMode
         self.onApply = onApply
         _selection = State(initialValue: Set(selectedGenreIds))
     }
@@ -33,13 +30,6 @@ struct CategoryFilterSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 12) {
-                if isTextMode {
-                    Text("Choosing a category clears the search and switches to category browsing.")
-                        .font(.footnote)
-                        .foregroundStyle(CinemaTokens.Colors.textSecondary)
-                        .padding(.horizontal, 16)
-                }
-
                 ScrollView {
                     LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
                         ForEach(genres) { genre in

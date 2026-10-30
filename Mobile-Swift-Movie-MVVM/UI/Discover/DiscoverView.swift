@@ -68,8 +68,7 @@ public struct DiscoverView: View {
                 switch sheet {
                 case .filters:
                     DiscoverFilterSheet(
-                        filters: viewModel.filters,
-                        isTextMode: false
+                        filters: viewModel.filters
                     ) { draft in
                         Task {
                             await viewModel.applyFilters(draft)
@@ -78,8 +77,7 @@ public struct DiscoverView: View {
                 case .category:
                     CategoryFilterSheet(
                         selectedGenreIds: viewModel.selectedGenres.map(\.id),
-                        genres: viewModel.genres,
-                        isTextMode: false
+                        genres: viewModel.genres
                     ) { genreIds in
                         Task {
                             await viewModel.applyCategory(genreIds)
