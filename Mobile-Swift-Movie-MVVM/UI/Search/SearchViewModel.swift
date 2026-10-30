@@ -65,6 +65,7 @@ public final class SearchViewModel {
 
     @MainActor
     public func applyYear(_ year: Int?) async {
+        guard selectedYear != year else { return }
         selectedYear = year
 
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)

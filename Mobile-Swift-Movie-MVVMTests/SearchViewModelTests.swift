@@ -163,6 +163,19 @@ struct SearchViewModelTests {
         #expect(repository.requestedSearchYear == 2021)
     }
 
+    @Test func testApplyingSameYearDoesNotRefetch() async {
+        let (viewModel, repository) = makeSUT()
+        repository.searchResult = .success([makeMovie(id: 1, title: "Dune")])
+
+        await viewModel.executeSearchImmediate(query: "Dune")
+        await viewModel.applyYear(2021)
+        let calls = repository.searchCallCount
+
+        await viewModel.applyYear(2021)
+
+        #expect(repository.searchCallCount == calls)
+    }
+
     @Test func testApplyYearWithoutQueryStoresOnly() async {
         let (viewModel, repository) = makeSUT()
 
