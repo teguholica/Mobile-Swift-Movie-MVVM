@@ -14,8 +14,7 @@ struct Mobile_Swift_Movie_MVVMApp: App {
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            FavoriteMovieItem.self,
-            Item.self,
+            FavoriteMovieItem.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
