@@ -314,6 +314,57 @@ struct SearchViewModelTests {
         #expect(repository.requestedDiscoverFilters?.genreIds == [28])
     }
 
+    @Test func testApplyFiltersCommitsSort() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], sort: .rating))
+
+        #expect(viewModel.filters.sort == .rating)
+        #expect(viewModel.activeFilterCount == 1)
+        #expect(repository.requestedDiscoverFilters?.sort == .rating)
+    }
+
+    @Test func testClearingSortRestoresPopularity() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], sort: .newest))
+        await viewModel.clearSort()
+
+        #expect(viewModel.filters.sort == .popularity)
+        #expect(viewModel.activeFilterCount == 0)
+        #expect(repository.requestedDiscoverFilters?.sort == .popularity)
+        #expect(repository.requestedDiscoverFilters?.genreIds == [28])
+    }
+
+    @Test func testPaginationKeepsSort() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "Action 1")])
+
+        await viewModel.toggleGenre(Genre(id: 28, name: "Action"))
+        await viewModel.applyFilters(DiscoverFilters(genreIds: [28], sort: .title))
+
+        repository.discoverResult = .success([makeMovie(id: 11, title: "Action 2")])
+        await viewModel.loadMore()
+
+        #expect(viewModel.page == 2)
+        #expect(repository.requestedDiscoverFilters?.sort == .title)
+    }
+
+    @Test func testSortOnlyApplyUsesDiscover() async {
+        let (viewModel, repository) = makeSUT()
+        repository.discoverResult = .success([makeMovie(id: 10, title: "John Wick")])
+
+        await viewModel.applyFilters(DiscoverFilters(sort: .rating))
+
+        #expect(repository.requestedDiscoverFilters?.sort == .rating)
+        #expect(repository.requestedDiscoverFilters?.genreIds == [])
+        #expect(viewModel.state == .loaded)
+    }
+
     @Test func testFilterOnlyPaginationUsesDiscover() async {
         let (viewModel, repository) = makeSUT()
         repository.discoverResult = .success([makeMovie(id: 1, title: "First")])

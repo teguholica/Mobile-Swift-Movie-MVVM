@@ -39,6 +39,12 @@ struct DiscoverFilterSheet: View {
                 } header: {
                     Text("Minimum rating")
                 }
+
+                Section {
+                    sortPicker
+                } header: {
+                    Text("Sort by")
+                }
             }
             .navigationTitle("Filters")
             .navigationBarTitleDisplayMode(.inline)
@@ -90,6 +96,16 @@ struct DiscoverFilterSheet: View {
         }
         .pickerStyle(.segmented)
         .accessibilityLabel("Minimum rating")
+    }
+
+    private var sortPicker: some View {
+        Picker("Sort by", selection: $draft.sort) {
+            ForEach(DiscoverSort.allCases, id: \.self) { sort in
+                Text(sort.title).tag(sort)
+            }
+        }
+        .pickerStyle(.segmented)
+        .accessibilityLabel("Sort by")
     }
 
     private var toYearLabel: String {

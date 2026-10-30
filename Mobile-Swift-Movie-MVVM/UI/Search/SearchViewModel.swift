@@ -91,19 +91,19 @@ public final class SearchViewModel {
         var count = 0
         if filters.yearRange != nil { count += 1 }
         if filters.minRating != nil { count += 1 }
-        if filters.sort != .popularity { count += 1 }
+        if !filters.sort.isDefault { count += 1 }
         return count
     }
 
     public var hasVisibleDiscoverFilters: Bool {
         query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && (filters.yearRange != nil || filters.minRating != nil || filters.sort != .popularity)
+            && (filters.yearRange != nil || filters.minRating != nil || !filters.sort.isDefault)
     }
 
     private var isDiscoverRequest: Bool {
         if !selectedGenres.isEmpty { return true }
         guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        return filters.yearRange != nil || filters.minRating != nil || filters.sort != .popularity
+        return filters.yearRange != nil || filters.minRating != nil || !filters.sort.isDefault
     }
 
     public func isSelected(_ genre: Genre) -> Bool {
@@ -278,6 +278,11 @@ public final class SearchViewModel {
     @MainActor
     public func clearMinRating() async {
         await clearing { $0.minRating = nil }
+    }
+
+    @MainActor
+    public func clearSort() async {
+        await clearing { $0.sort = .popularity }
     }
 
     @MainActor

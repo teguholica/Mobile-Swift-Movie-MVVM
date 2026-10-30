@@ -120,6 +120,17 @@ public struct SearchView: View {
                         }
                     }
                 }
+
+                if !viewModel.filters.sort.isDefault {
+                    filterChip(
+                        title: viewModel.filters.sort.title,
+                        accessibilityTitle: "\(viewModel.filters.sort.title) sort"
+                    ) {
+                        Task {
+                            await viewModel.clearSort()
+                        }
+                    }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
