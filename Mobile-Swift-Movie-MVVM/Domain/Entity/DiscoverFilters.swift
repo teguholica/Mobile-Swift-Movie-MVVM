@@ -5,11 +5,15 @@
 
 import Foundation
 
-public enum DiscoverSort: CaseIterable, Equatable, Sendable {
+public enum DiscoverSort: CaseIterable, Hashable, Sendable {
     case popularity
     case rating
     case newest
     case title
+
+    public var isDefault: Bool {
+        self == .popularity
+    }
 }
 
 public struct DiscoverFilters: Equatable, Sendable {
