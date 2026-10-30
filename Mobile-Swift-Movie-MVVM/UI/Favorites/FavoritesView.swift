@@ -158,7 +158,7 @@ public struct FavoritesView: View {
     private var detailedListView: some View {
         List {
             ForEach(viewModel.visibleFavorites) { movie in
-                MovieRowView(movie: movie)
+                MovieRowView(movie: movie, showsChevron: false)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                     .listRowBackground(Color.clear)
